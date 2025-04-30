@@ -1,2 +1,2 @@
-# CMS
-Construction Management Software
+# CMSGUI
+Construction management system
