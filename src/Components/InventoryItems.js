@@ -14,13 +14,13 @@ const InventoryItems = (props) => {
 
   return (
     <div className="overflow-x-auto rounded-md">
-      <table className="w-full text-left text-sm text-gray-600 border border-gray-200 rounded-md">
+      <table className="w-full text-left text-xs sm:text-sm text-gray-600 border border-gray-200 rounded-md">
         <thead className="bg-gray-200 border-b border-gray-200">
           <tr className="font-semibold text-black">
-            <th scope="col" className="px-4 py-3 w-16">
+            <th scope="col" className="px-2 sm:px-4 py-2 sm:py-3 w-12 sm:w-16">
               No.
             </th>
-            <th scope="col" className="px-4 py-3">
+            <th scope="col" className="px-2 sm:px-4 py-2 sm:py-3">
               Particulars
             </th>
           </tr>
@@ -35,11 +35,11 @@ const InventoryItems = (props) => {
                 setItemSelected(true);
               }}
             >
-              <td className="px-4 py-3 font-semibold text-gray-900">
+              <td className="px-2 sm:px-4 py-2 sm:py-3 font-semibold text-gray-900">
                 {item.id}
               </td>
-              <td className="px-4 py-3 justify-between flex items-center">
-                <span className="flex-1">{item.name}</span>
+              <td className="px-2 sm:px-4 py-2 sm:py-3 justify-between flex items-center">
+                <span className="flex-1 truncate">{item.name}</span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -54,14 +54,14 @@ const InventoryItems = (props) => {
                     });
                   }}
                 >
-                  <Trash2 />
+                  <Trash2 size={16} className="sm:w-5 sm:h-5" />
                 </button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      {isPending && <p className="text-gray-500 text-sm">Updating...</p>}
+      {isPending && <p className="text-gray-500 text-xs sm:text-sm">Updating...</p>}
     </div>
   );
 };

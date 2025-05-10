@@ -6,7 +6,7 @@ import AddLabourBillModal from "../Components/AddLabourBillModal";
 const LabourBill = () => {
   const location = useLocation();
   const [showModal, setShowModal] = useState(false);
-  const labourData = [
+  const [labourData, setLabourData] = useState([
     {
       id: 1,
       date: "2023-10-01",
@@ -43,13 +43,25 @@ const LabourBill = () => {
       extrapayment: 5000,
       remarks: "Concrete work done",
     },
-  ];
+  ]);
+
+  // Function to add a new labour bill
+  const addLabourBill = (newBill) => {
+    // Create a new bill with an ID
+    const billWithId = {
+      ...newBill,
+      id: labourData.length + 1
+    };
+
+    // Add the new bill to the state
+    setLabourData([...labourData, billWithId]);
+  };
   return (
     <>
       <Navbar currentPath={location.pathname} icon={ReceiptIndianRupee} />
       <div className="overflow-x-auto px-6 rounded-lg">
         <div className="flex justify-start items-center text-lg font-semibold text-gray-900 mb-3 mt-4">
-          Labour Bill List [3]
+          Labour Bill List [{labourData.length}]
         </div>
         <div className="flex flex-wrap justify-between items-center mb-3">
           <div className="flex gap-2 items-center">
@@ -140,7 +152,7 @@ const LabourBill = () => {
           </tbody>
         </table>
       </div>
-      {showModal && <AddLabourBillModal setShowModal={setShowModal} />}
+      {showModal && <AddLabourBillModal setShowModal={setShowModal} addLabourBill={addLabourBill} />}
     </>
   );
 };

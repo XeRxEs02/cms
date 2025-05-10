@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
 
-const AddLabourBillModal = ({ setShowModal }) => {
+const AddLabourBillModal = ({ setShowModal, addLabourBill }) => {
   const initialValues = {
     date: "",
     barbender: "",
@@ -40,7 +40,24 @@ const AddLabourBillModal = ({ setShowModal }) => {
   });
 
   const handleSubmit = (values) => {
-    console.log("Form data", values);
+    // Convert string values to numbers where needed
+    const processedValues = {
+      ...values,
+      headmanson: parseInt(values.headmanson),
+      manson: parseInt(values.manson),
+      mhelper: parseInt(values.mhelper),
+      whelper: parseInt(values.whelper),
+      total: parseInt(values.total),
+      extrapayment: parseInt(values.extrapayment)
+    };
+
+    // Add the new labour bill
+    addLabourBill(processedValues);
+
+    // Close the modal
+    setShowModal(false);
+
+    console.log("Added new labour bill:", processedValues);
   };
 
   return (

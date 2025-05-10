@@ -15,6 +15,7 @@ const sidebarroutes = [
     icon: <ChartColumnBig size={18} />,
     name: "Dashboard",
   },
+
   {
     path: "/app/dwa",
     icon: <ListTodo size={18} />,
