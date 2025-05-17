@@ -9,7 +9,7 @@ import { useAuth } from "../context/AuthContext";
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   // Log the current path for debugging
   console.log('Current path:', location.pathname);
@@ -67,12 +67,12 @@ export default function Sidebar() {
       <div className="flex flex-col gap-4 items-center mt-auto">
         <div className="flex items-center gap-4 w-full">
           <div className="w-10 h-10 bg-red-600 text-white flex items-center justify-center rounded-full ">
-            A
+            {user && user.name ? user.name.charAt(0) : 'A'}
           </div>
-          <p className="text-lg font-semibold text-black">Abhishek U</p>
+          <p className="text-lg font-semibold text-black">{user && user.name ? user.name : 'Abhishek U'}</p>
         </div>
         <div
-          className="bg-red-600 w-full text-center py-2 rounded cursor-pointer hover:bg-red-700 text-lg flex items-center justify-center"
+          className="bg-red-600 w-full text-center py-2 rounded cursor-pointer hover:bg-red-700 text-lg flex items-center justify-center text-white"
           onClick={handleLogout}
         >
           <LogOut size={18} className="mr-2" />

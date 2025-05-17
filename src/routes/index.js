@@ -9,8 +9,13 @@ const WOListing = lazy(() => import("../Pages/WOListing.js"));
 const Login = lazy(() => import("../Pages/Login.js"));
 const LabourBill = lazy(() => import("../Pages/LabourBill.js"));
 const LabourPayments = lazy(() => import("../Pages/LabourPayment.js"));
+const Projects = lazy(() => import("../Pages/Projects.js"));
 
 const pageroutes = [
+  {
+    path: "/app/projects",
+    component: Projects,
+  },
   {
     path: "/app/dwa",
     component: Dwamain,

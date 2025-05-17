@@ -7,6 +7,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { ProjectProvider } from "./context/ProjectContext";
 import ProtectedRoute from "./Components/ProtectedRoute";
 
 const Login = lazy(() => import("./Pages/Login.js"));
@@ -24,27 +25,29 @@ const Loading = () => (
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Suspense fallback={<Loading />}>
-          <Routes>
-            {/* Public route */}
-            <Route path="/login" element={<Login />} />
+      <ProjectProvider>
+        <Router>
+          <Suspense fallback={<Loading />}>
+            <Routes>
+              {/* Public route */}
+              <Route path="/login" element={<Login />} />
 
-            {/* Protected routes */}
-            <Route
-              path="/*"
-              element={
-                <ProtectedRoute>
-                  <Layout />
-                </ProtectedRoute>
-              }
-            />
+              {/* Protected routes */}
+              <Route
+                path="/*"
+                element={
+                  <ProtectedRoute>
+                    <Layout />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Redirect root to dashboard */}
-            <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
-          </Routes>
-        </Suspense>
-      </Router>
+              {/* Redirect root to projects page */}
+              <Route path="/" element={<Navigate to="/app/projects" replace />} />
+            </Routes>
+          </Suspense>
+        </Router>
+      </ProjectProvider>
     </AuthProvider>
   );
 }

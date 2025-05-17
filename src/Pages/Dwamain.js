@@ -203,7 +203,7 @@ const Dwamain = () => {
           </div>
         ) : (
           // Dashboard Tab Content
-          <div className="bg-white rounded-lg overflow-hidden shadow p-4">
+          <div className=" rounded-lg overflow-hidden shadow p-4">
             {/* Top row of cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               {/* Total DWAs Card */}

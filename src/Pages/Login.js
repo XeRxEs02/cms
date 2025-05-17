@@ -12,10 +12,10 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const { login, isAuthenticated } = useAuth();
 
-  // If already authenticated, redirect to dashboard
+  // If already authenticated, redirect to projects page
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigate("/app/dashboard");
+      navigate("/app/projects");
     }
   }, [isAuthenticated, navigate]);
 
@@ -36,7 +36,8 @@ export default function LoginPage() {
       const loginSuccess = login(email, password);
 
       if (loginSuccess) {
-        navigate("/app/dashboard");
+        // Redirect to projects page after successful login
+        navigate("/app/projects");
       } else {
         setError("Invalid credentials. Please use admin@sbpatil.com / admin123");
       }

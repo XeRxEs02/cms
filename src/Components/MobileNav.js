@@ -9,7 +9,7 @@ const MobileNav = () => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   const handleLogout = () => {
     logout();
@@ -60,9 +60,8 @@ const MobileNav = () => {
 
       {/* Mobile Sidebar */}
       <div
-        className={`fixed inset-0 z-50 transform ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        } transition-transform duration-300 ease-in-out lg:hidden`}
+        className={`fixed inset-0 z-50 transform ${isOpen ? "translate-x-0" : "-translate-x-full"
+          } transition-transform duration-300 ease-in-out lg:hidden`}
         style={{ top: "60px" }}
       >
         <div className="bg-[#669BBC] h-full w-64 shadow-lg p-4 overflow-y-auto">
@@ -88,9 +87,9 @@ const MobileNav = () => {
           <div className="flex flex-col gap-4 items-center mt-8">
             <div className="flex items-center gap-4 w-full">
               <div className="w-10 h-10 bg-red-600 text-white flex items-center justify-center rounded-full">
-                A
+                {user && user.name ? user.name.charAt(0) : 'A'}
               </div>
-              <p className="text-lg font-semibold text-black">Abhishek U</p>
+              <p className="text-lg font-semibold text-black">{user && user.name ? user.name : 'Abhishek U'}</p>
             </div>
             <div
               className="bg-red-600 w-full text-center py-2 rounded cursor-pointer hover:bg-red-700 text-lg flex items-center justify-center"

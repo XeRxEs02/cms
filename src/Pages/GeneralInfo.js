@@ -1,5 +1,4 @@
 import React from "react";
-
 const InformationTables = () => {
   return (
     <div className="bg-gradient-to-b from-gray-200 to-gray-400 p-6 min-h-screen">
@@ -58,7 +57,6 @@ const InformationTables = () => {
                 ["Mason", "800"],
                 ["M - Helper", "600"],
                 ["W - Helper", "400"],
-                ["Column bartending", "13,200"],
               ].map(([label, value], index) => (
                 <tr
                   key={index}

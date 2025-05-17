@@ -1,16 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar from "../Components/Navbar";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useProject } from "../context/ProjectContext";
 import {
   ChartColumnBig,
   Wallet,
   CircleDollarSign,
   BarChart3,
-  AlertCircle
+  AlertCircle,
+  ArrowLeft
 } from "lucide-react";
 
 const Dashboard = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { selectedProject, isLoading } = useProject();
+
+  // Redirect to projects page if no project is selected
+  useEffect(() => {
+    if (!isLoading && !selectedProject) {
+      navigate('/app/projects');
+    }
+  }, [selectedProject, isLoading, navigate]);
 
   const [dashboardData] = useState({
     totalInstallments: { current: 2, total: 5 },
@@ -169,10 +180,29 @@ const Dashboard = () => {
     );
   };
 
+  // Function to go back to projects page
+  const handleBackToProjects = () => {
+    navigate('/app/projects');
+  };
+
   return (
     <>
       <Navbar currentPath={location.pathname} icon={ChartColumnBig} />
-      <div className="p-3 sm:p-4 md:p-6 bg-white">
+
+      {/* Project header with back button */}
+      {selectedProject && (
+        <div className="px-6 pt-2 pb-4 flex items-center">
+          <button
+            onClick={handleBackToProjects}
+            className="flex items-center text-[#7BAFD4] hover:text-[#5A8CAB] mr-4"
+          >
+            <ArrowLeft size={16} className="mr-1" />
+            <span>Back to Projects</span>
+          </button>
+        </div>
+      )}
+
+      <div className="p-3 sm:p-4 md:p-6]">
         {/* Top row of cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* Total Installments Card */}
@@ -255,7 +285,7 @@ const Dashboard = () => {
         {/* Middle row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           {/* Existing Balance Chart */}
-          <div className="bg-[#7BAFD4] rounded-md p-4 shadow">
+          <div className="bg-[#7BAFD4] rounded-md p-4 shadow-md border-2 border-white">
             <div className="text-white text-sm sm:text-base font-medium mb-4">Existing Balance : {dashboardData.existingBalance} L</div>
             <div className="flex justify-center my-3">
               {renderCircularProgress(70, "pink")}
@@ -274,7 +304,7 @@ const Dashboard = () => {
 
           {/* Budget Spent Cards */}
           <div className="grid grid-cols-2 md:grid-cols-1 md:grid-rows-2 gap-4">
-            <div className="bg-[#7BAFD4] rounded-md p-4 shadow">
+            <div className="bg-[#7BAFD4] rounded-md p-4 shadow-md border-2 border-white">
               <div className="text-white text-xs sm:text-sm mb-2">Budget Spent</div>
               <div className="text-red-500 text-base sm:text-lg md:text-xl font-bold">
                 {dashboardData.budgetSpent.current.toLocaleString()} /{" "}
@@ -284,7 +314,7 @@ const Dashboard = () => {
                 {renderCircularProgress(dashboardData.budgetSpentPercentage, "pink")}
               </div>
             </div>
-            <div className="bg-[#7BAFD4] rounded-md p-4 shadow">
+            <div className="bg-[#7BAFD4] rounded-md p-4 shadow-md border-2 border-white">
               <div className="text-white text-xs sm:text-sm mb-2">Budget Spent</div>
               <div className="text-red-500 text-base sm:text-lg md:text-xl font-bold">
                 {dashboardData.budgetSpentPercentage}%
@@ -297,7 +327,7 @@ const Dashboard = () => {
 
           {/* Balance To Be Paid Cards */}
           <div className="grid grid-cols-2 md:grid-cols-1 md:grid-rows-2 gap-4">
-            <div className="bg-[#7BAFD4] rounded-md p-4 shadow">
+            <div className="bg-[#7BAFD4] rounded-md p-4 shadow-md border-2 border-white">
               <div className="text-white text-xs sm:text-sm mb-2">Balance To Be Paid</div>
               <div className="text-red-500 text-base sm:text-lg md:text-xl font-bold">
                 {dashboardData.balanceToBePaid.current.toLocaleString()} /{" "}
@@ -307,7 +337,7 @@ const Dashboard = () => {
                 {renderCircularProgress(dashboardData.balanceToBePaidPercentage, "pink")}
               </div>
             </div>
-            <div className="bg-[#7BAFD4] rounded-md p-4 shadow">
+            <div className="bg-[#7BAFD4] rounded-md p-4 shadow-md border-2 border-white">
               <div className="text-white text-xs sm:text-sm mb-2">Balance To Be Paid</div>
               <div className="text-red-500 text-base sm:text-lg md:text-xl font-bold">
                 {dashboardData.balanceToBePaidPercentage}%
@@ -322,7 +352,7 @@ const Dashboard = () => {
         {/* Bottom row - Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Bar Chart */}
-          <div className="bg-[#7BAFD4] rounded-md p-4 shadow">
+          <div className="bg-[#7BAFD4] rounded-md p-4 shadow-md border-2 border-white">
             <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-4">
               <div className="flex items-center">
                 <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
@@ -337,7 +367,7 @@ const Dashboard = () => {
           </div>
 
           {/* Line Chart */}
-          <div className="bg-[#7BAFD4] rounded-md p-4 shadow">
+          <div className="bg-[#7BAFD4] rounded-md p-4 shadow-md border-2 border-white">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
               <div className="text-white text-sm font-medium">Statistics</div>
               <div className="flex flex-wrap items-center gap-2 sm:gap-4">
