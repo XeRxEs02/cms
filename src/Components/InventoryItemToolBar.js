@@ -1,5 +1,7 @@
 import React, { useTransition } from "react";
 import { Search } from "lucide-react";
+import { useToast } from "../context/ToastContext";
+
 const InventoryItemToolBar = (props) => {
   const {
     itemDetailsData,
@@ -12,6 +14,7 @@ const InventoryItemToolBar = (props) => {
   } = props;
 
   const [isPending, startTransition] = useTransition(); // Add useTransition
+  const { showInfo } = useToast();
 
   return (
     <div>
@@ -57,7 +60,10 @@ const InventoryItemToolBar = (props) => {
         <div className="flex gap-2 sm:gap-4 items-center w-full sm:w-auto justify-end">
           <button
             className="bg-red-500 hover:bg-red-600 text-white text-xs sm:text-sm font-semibold px-3 sm:px-4 py-2 rounded"
-            onClick={() => setShowItemDetailsModal(true)} // Show modal on button click
+            onClick={() => {
+              setShowItemDetailsModal(true);
+              showInfo("Add Data modal opened. Enter transaction details to add to inventory.");
+            }}
           >
             Add Data
           </button>

@@ -48,68 +48,61 @@ export default function LoginPage() {
 
   return (
     <div
-      className="bg-gradient-to-b from-gray-800 to-gray-600 min-h-screen flex items-center justify-center relative px-4"
-    //   style={{
-    //     background:
-    //       "linear-gradient(180deg, rgba(5,0,43,1) 0%, rgba(4,4,143,1) 53%, rgba(30,100,186,1) 98%)",
-    //   }}
+      className="min-h-screen flex items-center justify-center relative px-4 sm:px-6 lg:px-8"
+      style={{
+        background: "linear-gradient(135deg, #1e90ff 0%, #00bcd4 100%)",
+      }}
     >
-      <div className="w-full max-w-md text-center bg-transparent p-4 rounded">
-        <div className="flex justify-center items-center">
-          {" "}
-          <img src={elvalogo} alt="Logo" className="w-56 h-30 mb-8" />
+      <div className="w-full max-w-sm sm:max-w-md text-center bg-transparent p-4 sm:p-6 rounded">
+        {/* Logo */}
+        <div className="flex justify-center items-center mb-8">
+          <img src={elvalogo} alt="Elva Tech" className="w-32 sm:w-40 h-auto" />
         </div>
 
         <form className="space-y-6 mb-8" onSubmit={handleSubmit}>
-          <div className="text-left">
-            <label htmlFor="email" className="block text-gray-400 text-sm mb-2">
-              EMAIL ADDRESS
-            </label>
+          {/* Username Input */}
+          <div>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-transparent border-b border-gray-400 text-white text-lg focus:outline-none"
+              placeholder="Username"
+              className="w-full bg-white/90 backdrop-blur-sm border-0 rounded-full px-6 py-4 text-gray-700 text-base placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50 focus:bg-white transition-all shadow-lg"
               required
+              autoComplete="email"
             />
           </div>
 
-          <div className="text-left">
-            <label
-              htmlFor="password"
-              className="block text-gray-400 text-sm mb-2"
-            >
-              PASSWORD
-            </label>
-            <div className="relative">
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-transparent border-b border-gray-400 text-white text-lg focus:outline-none"
-                required
-              />
-              <button
-                type="button"
-                className="absolute right-0 top-0 mt-2 text-gray-400 hover:text-white"
-              >
-                <i className="fas fa-question-circle"></i>
-              </button>
-            </div>
+          {/* Password Input */}
+          <div>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              className="w-full bg-white/90 backdrop-blur-sm border-0 rounded-full px-6 py-4 text-gray-700 text-base placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50 focus:bg-white transition-all shadow-lg"
+              required
+              autoComplete="current-password"
+            />
           </div>
 
           {error && (
-            <div className="text-red-500 text-sm text-center mb-4">
+            <div className="text-white text-sm text-center mb-4 p-3 bg-red-500/20 rounded-lg border border-red-300/30 backdrop-blur-sm">
               {error}
             </div>
           )}
 
+          {/* Login Button */}
           <button
             type="submit"
             disabled={isLoading}
-            className={`w-full ${isLoading ? 'bg-gray-400' : 'bg-gray-500 hover:bg-gray-600'} text-white py-2 rounded transition flex items-center justify-center`}
+            className={`w-full ${
+              isLoading
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-red-500 hover:bg-red-600 active:bg-red-700'
+            } text-white py-4 rounded-full transition-all flex items-center justify-center text-base font-semibold shadow-lg transform hover:scale-105 active:scale-95`}
           >
             {isLoading ? (
               <>

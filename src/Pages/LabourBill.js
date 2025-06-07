@@ -3,10 +3,16 @@ import Navbar from "../Components/Navbar";
 import { useLocation } from "react-router-dom";
 import { ReceiptIndianRupee, Search } from "lucide-react";
 import AddLabourBillModal from "../Components/AddLabourBillModal";
+import { useToast } from "../context/ToastContext";
+import { useLabour } from "../context/LabourContext";
+
 const LabourBill = () => {
   const location = useLocation();
   const [showModal, setShowModal] = useState(false);
-  const [labourData, setLabourData] = useState([
+  const { showInfo, showSuccess } = useToast();
+  const { weeklyLabourData, setWeeklyLabourData } = useLabour();
+  // Combine context data with local data for display
+  const [localLabourData, setLocalLabourData] = useState([
     {
       id: 1,
       date: "2023-10-01",
@@ -16,6 +22,7 @@ const LabourBill = () => {
       mhelper: 1,
       whelper: 1,
       total: 4,
+      amount: 2800, // 800 + 800 + 600 + 400
       extrapayment: 1000,
       remarks: "Extra work done",
     },
@@ -28,6 +35,7 @@ const LabourBill = () => {
       mhelper: 2,
       whelper: 2,
       total: 6,
+      amount: 3600, // 800 + 800 + 1200 + 800
       extrapayment: 1500,
       remarks: "Extra work done",
     },
@@ -40,28 +48,33 @@ const LabourBill = () => {
       mhelper: 2,
       whelper: 2,
       total: 10,
+      amount: 6000, // 3200 + 1600 + 1200 + 800
       extrapayment: 5000,
       remarks: "Concrete work done",
     },
   ]);
+
+  // Combine local and context data
+  const allLabourData = [...localLabourData, ...weeklyLabourData];
 
   // Function to add a new labour bill
   const addLabourBill = (newBill) => {
     // Create a new bill with an ID
     const billWithId = {
       ...newBill,
-      id: labourData.length + 1
+      id: allLabourData.length + 1
     };
 
-    // Add the new bill to the state
-    setLabourData([...labourData, billWithId]);
+    // Add the new bill to the local state
+    setLocalLabourData([...localLabourData, billWithId]);
+    showSuccess(`Labour bill added successfully! Total: ₹${billWithId.amount + billWithId.extrapayment}`);
   };
   return (
     <>
       <Navbar currentPath={location.pathname} icon={ReceiptIndianRupee} />
       <div className="overflow-x-auto px-6 rounded-lg">
         <div className="flex justify-start items-center text-lg font-semibold text-gray-900 mb-3 mt-4">
-          Labour Bill List [{labourData.length}]
+          Labour Bill List [{allLabourData.length}]
         </div>
         <div className="flex flex-wrap justify-between items-center mb-3">
           <div className="flex gap-2 items-center">
@@ -93,7 +106,10 @@ const LabourBill = () => {
           </div>
           <button
             className="flex items-center px-4 py-3 bg-red-600 text-white text-sm rounded-md font-semibold"
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              setShowModal(true);
+              showInfo("Add Labour Bill modal opened. Enter labour details to create a new bill.");
+            }}
           >
             ADD
           </button>
@@ -125,14 +141,23 @@ const LabourBill = () => {
               Total
             </th>
             <th scope="col" className="px-4 py-3">
+              Amount (₹)
+            </th>
+            <th scope="col" className="px-4 py-3">
               Extra Payment
+            </th>
+            <th scope="col" className="px-4 py-3">
+              Total Payment
+            </th>
+            <th scope="col" className="px-4 py-3">
+              Source
             </th>
             <th scope="col" className="px-4 py-3">
               Remarks
             </th>
           </thead>
           <tbody className="w-full bg-white divide-y divide-gray-200">
-            {labourData.map((item) => (
+            {allLabourData.map((item) => (
               <tr
                 key={item.id}
                 className="border-b border-gray-200 hover:bg-gray-50 text-gray-800"
@@ -145,7 +170,20 @@ const LabourBill = () => {
                 <td className="px-4 py-3 text-center">{item.mhelper}</td>
                 <td className="px-4 py-3 text-center">{item.whelper}</td>
                 <td className="px-4 py-3 text-center">{item.total}</td>
-                <td className="px-4 py-3 text-center">{item.extrapayment}</td>
+                <td className="px-4 py-3 text-center font-semibold text-green-600">₹{item.amount || 0}</td>
+                <td className="px-4 py-3 text-center">₹{item.extrapayment || 0}</td>
+                <td className="px-4 py-3 text-center font-semibold text-blue-600">₹{(item.amount || 0) + (item.extrapayment || 0)}</td>
+                <td className="px-4 py-3 text-center">
+                  {item.weekNumber ? (
+                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
+                      Week {item.weekNumber} - {item.day || 'Daily'}
+                    </span>
+                  ) : (
+                    <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">
+                      Manual Entry
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3">{item.remarks}</td>
               </tr>
             ))}

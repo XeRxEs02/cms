@@ -7,6 +7,7 @@ import {
   BadgeInfo,
   HandCoins,
   ListTodo,
+  CreditCard,
 } from "lucide-react";
 
 const sidebarroutes = [
@@ -45,6 +46,11 @@ const sidebarroutes = [
     path: "/app/labourpayments",
     icon: <HandCoins size={18} />,
     name: "Labour Payments",
+  },
+  {
+    path: "/app/clientpayments",
+    icon: <CreditCard size={18} />,
+    name: "Client Payments",
   },
 ];
 

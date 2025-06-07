@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Navbar from "../Components/Navbar";
+import ItemDetailsModal from "../Components/ItemDetailsModal";
 import { useLocation } from "react-router-dom";
 import {
   Boxes,
@@ -7,55 +8,76 @@ import {
   CircleDollarSign,
   Wallet,
   AlertCircle,
+  Package,
 } from "lucide-react";
+import { useAppContext } from '../context/AppContext';
+
 const Inventory = () => {
   const location = useLocation();
+  const { appData } = useAppContext();
 
-  // State to store item details data
-  const [itemDetailsData] = useState([
-    {
-      id: 1,
-      drNo: 1,
-      particulars: "Sand",
-      date: "2023-10-01",
-      amount: 1000,
-      paid: 500,
-      balance: 500,
-      remarks: "Initial payment",
-    },
-    {
-      id: 2,
-      drNo: 2,
-      particulars: "steel",
-      date: "2023-10-02",
-      amount: 2000,
-      paid: 1000,
-      balance: 1000,
-      remarks: "Partial payment",
-    },
-    {
-      id: 3,
-      drNo: 3,
-      particulars: "Sand",
-      date: "2023-10-03",
-      amount: 1500,
-      paid: 1500,
-      balance: 0,
-      remarks: "Full payment",
-    },
-  ]);
+  // State for active tab
+  const [activeTab, setActiveTab] = useState("Material Flow");
+
+  // State for item details modal
+  const [showItemDetailsModal, setShowItemDetailsModal] = useState(false);
+  const [selectedItemDetails, setSelectedItemDetails] = useState(null);
+
+  // Aggregate transactions by particulars for Recent Transactions tab
+  const aggregateTransactions = (entries) => {
+    const aggregated = entries.reduce((acc, entry) => {
+      const key = entry.particulars.toLowerCase();
+      
+      if (!acc[key]) {
+        acc[key] = {
+          firstTransactionId: entry.no,
+          drNo: entry.drNo || '-',
+          particulars: entry.particulars,
+          firstDate: entry.date,
+          latestDate: entry.date,
+          totalAmount: 0,
+          totalPaid: 0,
+          totalBalance: 0,
+          status: 'Pending',
+          transactions: []
+        };
+      }
+
+      acc[key].totalAmount += entry.amount;
+      acc[key].totalPaid += entry.paid;
+      acc[key].totalBalance += entry.balance;
+      acc[key].latestDate = entry.date;
+      acc[key].transactions.push(entry);
+
+      if (acc[key].totalBalance === 0) {
+        acc[key].status = 'Paid';
+      } else if (acc[key].totalPaid > 0) {
+        acc[key].status = 'Partial';
+      }
+
+      return acc;
+    }, {});
+
+    return Object.values(aggregated);
+  };
+
+  const aggregatedTransactions = aggregateTransactions(appData.dailyReport.entries);
+  const totalTransactions = aggregatedTransactions.length;
+  const totalAmount = aggregatedTransactions.reduce((sum, item) => sum + item.totalAmount, 0);
+  const totalPaid = aggregatedTransactions.reduce((sum, item) => sum + item.totalPaid, 0);
+  const totalBalance = aggregatedTransactions.reduce((sum, item) => sum + item.totalBalance, 0);
 
   // Helper functions for Material Flow tab
   const calculateTotalAmount = () => {
-    return itemDetailsData.reduce((total, item) => total + item.amount, 0);
+    return totalAmount;
   };
 
   const calculateTotalPaid = () => {
-    return itemDetailsData.reduce((total, item) => total + item.paid, 0);
+    return totalPaid;
   };
 
   const calculateTotalBalance = () => {
-    return itemDetailsData.reduce((total, item) => total + item.balance, 0);
+    return totalBalance;
   };
 
   const calculatePaymentPercentage = () => {
@@ -72,7 +94,7 @@ const Inventory = () => {
 
   const getItemCounts = () => {
     const itemCounts = {};
-    itemDetailsData.forEach(item => {
+    appData.dailyReport.entries.forEach(item => {
       if (itemCounts[item.particulars]) {
         itemCounts[item.particulars]++;
       } else {
@@ -85,7 +107,7 @@ const Inventory = () => {
   const getMonthlyData = () => {
     const monthlyData = {};
 
-    itemDetailsData.forEach(item => {
+    appData.dailyReport.entries.forEach(item => {
       const date = new Date(item.date);
       const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`;
 
@@ -108,6 +130,12 @@ const Inventory = () => {
     }));
   };
 
+  // Function to handle clicking on particulars
+  const handleParticularsClick = (transaction) => {
+    setSelectedItemDetails(transaction);
+    setShowItemDetailsModal(true);
+  };
+
   // Function to render circular progress
   const renderCircularProgress = (percentage, color = "red") => {
     const radius = 40;
@@ -116,7 +144,7 @@ const Inventory = () => {
 
     const colorClasses = {
       red: "stroke-red-500",
-      pink: "stroke-red-500", // Changed from pink-300 to red-500
+      pink: "stroke-red-500",
       blue: "stroke-[#7BAFD4]",
     };
 
@@ -183,17 +211,81 @@ const Inventory = () => {
     );
   };
 
+  // Function to group and sort transactions by particulars
+  const getGroupedTransactions = () => {
+    const grouped = appData.dailyReport.entries.reduce((acc, entry) => {
+      const key = entry.particulars.toLowerCase();
+      if (!acc[key]) {
+        acc[key] = {
+          no: entry.no,
+          drNo: entry.drNo || '-',
+          particulars: entry.particulars,
+          date: entry.date,
+          amount: entry.amount,
+          paid: entry.paid,
+          balance: entry.balance,
+          transactions: [entry]
+        };
+      } else {
+        // Update the aggregated values
+        acc[key].amount += entry.amount;
+        acc[key].paid += entry.paid;
+        acc[key].balance += entry.balance;
+        acc[key].transactions.push(entry);
+        
+        // Keep track of the latest transaction date
+        const currentDate = new Date(entry.date);
+        const existingDate = new Date(acc[key].date);
+        if (currentDate > existingDate) {
+          acc[key].date = entry.date;
+          acc[key].no = entry.no; // Use the most recent transaction ID
+        }
+      }
+      return acc;
+    }, {});
+
+    // Convert to array and sort by date (most recent first)
+    return Object.values(grouped).sort((a, b) => 
+      new Date(b.date) - new Date(a.date)
+    );
+  };
+
   return (
     <>
-      <Navbar currentPath={location.pathname} icon={Boxes} />
+      <Navbar currentPath={location.pathname} icon={Package} />
       <section className="w-full px-2 sm:px-4 mx-0 sm:mx-2">
+        {/* Tab Navigation */}
         <div className="border-b border-slate-200 mb-4">
-          <h2 className="text-xl font-semibold py-2">Material Flow</h2>
+          <div className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab("Material Flow")}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "Material Flow"
+                  ? "border-[#7BAFD4] text-[#7BAFD4]"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              Material Flow
+            </button>
+            <button
+              onClick={() => setActiveTab("Recent Transactions")}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "Recent Transactions"
+                  ? "border-[#7BAFD4] text-[#7BAFD4]"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              Recent Transactions
+            </button>
+          </div>
         </div>
-        <div>
-          <div className="p-3 sm:p-4 md:p-6">
-            {/* Top row of cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+
+        {/* Tab Content */}
+        {activeTab === "Material Flow" && (
+          <div>
+            <div className="p-3 sm:p-4 md:p-6">
+              {/* Top row of cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               {/* Total Amount Card */}
               <div className="bg-white border-2 border-[#7BAFD4] rounded-md p-4 shadow relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-12 bg-[#7BAFD4]"></div>
@@ -282,7 +374,7 @@ const Inventory = () => {
                 <div className="mt-2 text-sm">
                   <div className="flex items-center text-white">
                     <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                    <span>Total Items: {itemDetailsData.length}</span>
+                      <span>Total Items: {appData.dailyReport.entries.length}</span>
                   </div>
                   <div className="flex items-center text-white mt-1">
                     <div className="w-3 h-3 bg-red-400 rounded-full mr-2"></div>
@@ -356,39 +448,101 @@ const Inventory = () => {
                   {renderBarChart()}
                 </div>
               </div>
-
-              {/* Recent Transactions */}
-              <div className="bg-[#7BAFD4] rounded-md p-4 shadow-md border-2 border-white">
-                <div className="text-white font-medium mb-4">Recent Transactions</div>
-                <div className="overflow-x-auto">
-                  <div className="overflow-y-auto max-h-40">
-                    <table className="w-full text-white text-xs sm:text-sm">
-                      <thead className="text-xs uppercase">
-                        <tr>
-                          <th className="py-2 text-left">Date</th>
-                          <th className="py-2 text-left">Item</th>
-                          <th className="py-2 text-right">Amount</th>
-                          <th className="py-2 text-right">Paid</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {itemDetailsData.slice(-5).map((item, index) => (
-                          <tr key={index} className="border-t border-white/10">
-                            <td className="py-2">{item.date}</td>
-                            <td className="py-2">{item.particulars}</td>
-                            <td className="py-2 text-right">₹{item.amount}</td>
-                            <td className="py-2 text-right">₹{item.paid}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
+        )}
+
+        {/* Recent Transactions Tab */}
+        {activeTab === "Recent Transactions" && (
+          <div className="p-3 sm:p-4 md:p-6">
+            <div className="bg-white rounded-lg shadow-md border border-gray-200">
+              <div className="px-4 py-3 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Recent Transactions</h3>
+                <p className="text-sm text-gray-600">Latest inventory transactions grouped by particulars</p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Latest ID</th>
+                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">DR. No.</th>
+                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Particulars</th>
+                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Latest Date</th>
+                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Total Amount</th>
+                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Total Paid</th>
+                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Balance</th>
+                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {getGroupedTransactions().map((item) => (
+                      <tr key={item.particulars} className="text-sm hover:bg-gray-50">
+                        <td className="px-6 py-4 text-[#2C3E50]">#{item.no}</td>
+                        <td className="px-6 py-4 text-[#2C3E50]">{item.drNo}</td>
+                        <td className="px-6 py-4">
+                          <div
+                            className="flex items-center cursor-pointer hover:bg-blue-50 rounded-md p-1 transition-colors"
+                            onClick={() => handleParticularsClick({
+                              ...item,
+                              transactions: item.transactions
+                            })}
+                            title="Click to view item details"
+                          >
+                            <div className="w-2 h-2 bg-[#7BAFD4] rounded-full mr-2"></div>
+                            <span className="text-[#7BAFD4] hover:text-[#6B9FD4]">
+                              {item.particulars}
+                              <span className="ml-2 text-xs text-gray-500">
+                                ({item.transactions.length} transactions)
+                              </span>
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-[#4A5568]">{item.date}</td>
+                        <td className="px-6 py-4 text-[#2C3E50]">₹{item.amount}</td>
+                        <td className="px-6 py-4 text-[#2C3E50]">₹{item.paid}</td>
+                        <td className="px-6 py-4 text-[#2C3E50]">₹{item.balance}</td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              item.balance === 0
+                                ? 'bg-green-100 text-green-600'
+                                : item.paid > 0
+                                ? 'bg-yellow-100 text-yellow-600'
+                                : 'bg-red-100 text-red-600'
+                            }`}
+                          >
+                            {item.balance === 0 ? 'Paid' : item.paid > 0 ? 'Partial' : 'Pending'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-gray-50 font-semibold">
+                    <tr>
+                      <td colSpan="4" className="px-6 py-4 text-right text-[#2C3E50]">
+                        Unique Items: {getGroupedTransactions().length}
+                      </td>
+                      <td className="px-6 py-4 text-[#2C3E50]">₹{calculateTotalAmount()}</td>
+                      <td className="px-6 py-4 text-green-600">₹{calculateTotalPaid()}</td>
+                      <td className="px-6 py-4 text-red-600">₹{calculateTotalBalance()}</td>
+                      <td className="px-6 py-4"></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
+
+      {/* Item Details Modal */}
+      <ItemDetailsModal
+        isOpen={showItemDetailsModal}
+        onClose={() => setShowItemDetailsModal(false)}
+        itemDetails={selectedItemDetails}
+      />
     </>
   );
 };

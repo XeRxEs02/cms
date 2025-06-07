@@ -8,7 +8,11 @@ import {
 } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { ProjectProvider } from "./context/ProjectContext";
+import { ToastProvider } from "./context/ToastContext";
+import { LabourProvider } from "./context/LabourContext";
 import ProtectedRoute from "./Components/ProtectedRoute";
+import DailyReport from './Pages/DailyReport';
+import { AppProvider } from './context/AppContext';
 
 const Login = lazy(() => import("./Pages/Login.js"));
 
@@ -24,31 +28,38 @@ const Loading = () => (
 
 function App() {
   return (
-    <AuthProvider>
-      <ProjectProvider>
-        <Router>
-          <Suspense fallback={<Loading />}>
-            <Routes>
-              {/* Public route */}
-              <Route path="/login" element={<Login />} />
+    <AppProvider>
+      <AuthProvider>
+        <ProjectProvider>
+          <LabourProvider>
+            <ToastProvider>
+              <Router>
+                <Suspense fallback={<Loading />}>
+                  <Routes>
+                    {/* Public routes */}
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/" element={<Navigate to="/login" replace />} />
 
-              {/* Protected routes */}
-              <Route
-                path="/*"
-                element={
-                  <ProtectedRoute>
-                    <Layout />
-                  </ProtectedRoute>
-                }
-              />
+                    {/* Protected routes - all app routes */}
+                    <Route
+                      path="/app/*"
+                      element={
+                        <ProtectedRoute>
+                          <Layout />
+                        </ProtectedRoute>
+                      }
+                    />
 
-              {/* Redirect root to projects page */}
-              <Route path="/" element={<Navigate to="/app/projects" replace />} />
-            </Routes>
-          </Suspense>
-        </Router>
-      </ProjectProvider>
-    </AuthProvider>
+                    {/* Catch all unmatched routes */}
+                    <Route path="*" element={<Navigate to="/login" replace />} />
+                  </Routes>
+                </Suspense>
+              </Router>
+            </ToastProvider>
+          </LabourProvider>
+        </ProjectProvider>
+      </AuthProvider>
+    </AppProvider>
   );
 }
 

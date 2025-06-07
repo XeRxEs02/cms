@@ -92,7 +92,7 @@ const MobileNav = () => {
               <p className="text-lg font-semibold text-black">{user && user.name ? user.name : 'Abhishek U'}</p>
             </div>
             <div
-              className="bg-red-600 w-full text-center py-2 rounded cursor-pointer hover:bg-red-700 text-lg flex items-center justify-center"
+              className="bg-red-600 w-full text-center py-2 rounded cursor-pointer hover:bg-red-700 text-lg flex items-center justify-center text-white"
               onClick={handleLogout}
             >
               <LogOut size={18} className="mr-2" />

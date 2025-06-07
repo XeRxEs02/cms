@@ -3,7 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { Search, Plus } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useProject } from "../context/ProjectContext";
+import { useToast } from "../context/ToastContext";
 import ProjectCard from "../Components/ProjectCard";
+import EditProjectModal from "../Components/EditProjectModal";
+import AddProjectModal from "../Components/AddProjectModal";
 
 // Mock project data - in a real application, this would come from an API
 const projectsData = [
@@ -77,11 +80,16 @@ const projectsData = [
 
 const Projects = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, logout } = useAuth();
   const { selectProject } = useProject();
+  const { showSuccess, showError, showInfo } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
+  const [projects, setProjects] = useState(projectsData);
   const [filteredProjects, setFilteredProjects] = useState(projectsData);
   const [statusFilter, setStatusFilter] = useState("All");
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState(null);
+  const [addModalOpen, setAddModalOpen] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -92,7 +100,7 @@ const Projects = () => {
 
   // Filter projects based on search term and status
   useEffect(() => {
-    let filtered = projectsData;
+    let filtered = projects;
 
     // Apply search filter
     if (searchTerm) {
@@ -108,77 +116,173 @@ const Projects = () => {
     }
 
     setFilteredProjects(filtered);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, projects]);
 
   // Handle project selection
   const handleProjectSelect = (project) => {
     // Store selected project using context
     selectProject(project);
-    // Navigate to dashboard
-    navigate("/app/dashboard");
+    // Navigate to project-specific dashboard
+    navigate(`/app/project/${project.id}/dashboard`);
+  };
+
+  // Handle project edit
+  const handleProjectEdit = (project) => {
+    setEditingProject(project);
+    setEditModalOpen(true);
+  };
+
+  // Handle project save
+  const handleProjectSave = (updatedProject) => {
+    setProjects(prevProjects =>
+      prevProjects.map(project =>
+        project.id === updatedProject.id ? updatedProject : project
+      )
+    );
+    showSuccess(`Project "${updatedProject.name}" updated successfully!`);
+  };
+
+  // Handle project delete
+  const handleProjectDelete = (projectId) => {
+    const deletedProject = projects.find(project => project.id === projectId);
+    setProjects(prevProjects =>
+      prevProjects.filter(project => project.id !== projectId)
+    );
+    showSuccess(`Project "${deletedProject?.name || 'Unknown'}" deleted successfully!`);
+  };
+
+  // Handle add project
+  const handleAddProject = () => {
+    setAddModalOpen(true);
+  };
+
+  // Handle project add save
+  const handleProjectAdd = (newProject) => {
+    setProjects(prevProjects => [...prevProjects, newProject]);
+    showSuccess(`Project "${newProject.name}" created successfully!`);
+  };
+
+  // Function to get greeting based on time of day
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning,";
+    if (hour < 17) return "Good afternoon,";
+    return "Good evening,";
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    logout(); // Clear authentication state
+    navigate("/login"); // Navigate to login page
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-200 to-gray-400 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4 md:mb-0">
-            Construction Projects
-          </h1>
-
-          <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-            {/* Search */}
-            <div className="relative">
-              <input
-                type="text"
-                className="border rounded-full pl-10 pr-4 py-2 w-full md:w-64"
-                placeholder="Search projects..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+    <>
+      {/* Navbar Section */}
+      <div className="bg-gray-800 shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+          <div className="flex justify-between items-center">
+            <div className="text-lg sm:text-xl md:text-2xl font-bold text-white truncate pr-4">
+              {getGreeting()} Abhishek U!
             </div>
-
-            {/* Status Filter */}
-            <select
-              className="border rounded-lg px-4 py-2"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors text-xs sm:text-sm font-medium min-w-0 flex-shrink-0"
+              aria-label="Logout"
             >
-              <option value="All">All Projects</option>
-              <option value="Active">Active</option>
-              <option value="Completed">Completed</option>
-            </select>
-
-            {/* Add Project Button */}
-            <button className="flex items-center justify-center gap-2 bg-[#7BAFD4] hover:bg-[#5A8CAB] text-white px-4 py-2 rounded-lg transition-colors">
-              <Plus size={18} />
-              <span>Add Project</span>
+              <span className="hidden xs:inline sm:inline">Logout</span>
+              <span className="xs:hidden sm:hidden">Exit</span>
             </button>
           </div>
         </div>
-
-        {/* Projects Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredProjects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              onSelect={handleProjectSelect}
-              onDelete={(id) => console.log("Delete project:", id)}
-              onEdit={(project) => console.log("Edit project:", project.name)}
-            />
-          ))}
-        </div>
-
-        {filteredProjects.length === 0 && (
-          <div className="text-center py-10">
-            <p className="text-gray-600">No projects found matching your criteria.</p>
-          </div>
-        )}
       </div>
-    </div>
+
+      <div className="min-h-screen bg-gradient-to-b from-gray-200 to-gray-400 p-3 sm:p-4 md:p-6 lg:p-8 overflow-x-hidden">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+
+          {/* Header */}
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 sm:mb-8">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-4 lg:mb-0">
+              Construction Projects
+            </h1>
+
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full lg:w-auto">
+              {/* Search */}
+              <div className="relative flex-1 sm:flex-initial">
+                <input
+                  type="text"
+                  className="border border-gray-300 rounded-full pl-10 pr-4 py-2.5 w-full sm:w-64 lg:w-72 text-sm focus:outline-none focus:ring-2 focus:ring-[#7BAFD4] focus:border-transparent"
+                  placeholder="Search projects..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+              </div>
+
+              {/* Status Filter */}
+              <select
+                className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#7BAFD4] focus:border-transparent min-w-0 flex-1 sm:flex-initial"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="All">All Projects</option>
+                <option value="Active">Active</option>
+                <option value="Completed">Completed</option>
+              </select>
+
+              {/* Add Project Button */}
+              <button
+                onClick={handleAddProject}
+                className="flex items-center justify-center gap-2 bg-[#7BAFD4] hover:bg-[#5A8CAB] text-white px-3 sm:px-4 py-2.5 rounded-lg transition-colors text-sm font-medium min-h-[44px] touch-manipulation"
+                aria-label="Add new project"
+              >
+                <Plus size={16} />
+                <span className="hidden xs:inline">Add Project</span>
+                <span className="xs:hidden">Add</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Projects Grid */}
+          <div className="grid grid-cols-1 xs:grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6 lg:gap-8 justify-items-center place-items-start pb-16 sm:pb-20">
+            {filteredProjects.map((project) => (
+              <div key={project.id} className="flex justify-center w-full max-w-[280px] sm:max-w-[250px]">
+                <ProjectCard
+                  project={project}
+                  onSelect={handleProjectSelect}
+                  onDelete={handleProjectDelete}
+                  onEdit={handleProjectEdit}
+                />
+              </div>
+            ))}
+          </div>
+
+          {filteredProjects.length === 0 && (
+            <div className="text-center py-10 sm:py-16">
+              <p className="text-gray-600 text-sm sm:text-base px-4">No projects found matching your criteria.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Edit Project Modal */}
+      <EditProjectModal
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setEditingProject(null);
+        }}
+        onSave={handleProjectSave}
+        project={editingProject}
+      />
+
+      {/* Add Project Modal */}
+      <AddProjectModal
+        isOpen={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        onSave={handleProjectAdd}
+      />
+    </>
   );
 };
 

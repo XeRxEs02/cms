@@ -2,14 +2,17 @@ import React from "react";
 import { Home, ClipboardList, FileText, List, LogOut } from "lucide-react";
 import logo1 from "../Images/logo1.png";
 import sidebarroutes from "../routes/sidebar";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import elvalogo from "../Images/elva-logo-1.png";
 import { useAuth } from "../context/AuthContext";
+import { useProject } from "../context/ProjectContext";
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { projectId } = useParams();
   const { logout, user } = useAuth();
+  const { selectedProject } = useProject();
 
   // Log the current path for debugging
   console.log('Current path:', location.pathname);
@@ -19,18 +22,37 @@ export default function Sidebar() {
     navigate("/login");
   };
 
+  // Get the current project ID from URL or selected project
+  const getCurrentProjectId = () => {
+    if (projectId) return projectId;
+    if (selectedProject) return selectedProject.id.toString();
+    return null;
+  };
+
+  // Generate project-specific route path
+  const getProjectRoute = (basePath) => {
+    const currentProjectId = getCurrentProjectId();
+    if (currentProjectId) {
+      return `/app/project/${currentProjectId}${basePath.replace('/app', '')}`;
+    }
+    return basePath;
+  };
+
   // Check if the current path matches the route path
   const isActive = (routePath) => {
-    // Special case for dashboard
-    if (routePath === '/app/dashboard' && (location.pathname === '/app' || location.pathname === '/')) {
-      return true;
-    }
-    // Special case for DWA
-    if (routePath === '/app/dwa' && location.pathname === '/app') {
-      return true;
-    }
-    // This will handle both exact matches and sub-routes
-    return location.pathname === routePath || location.pathname.startsWith(routePath + '/');
+    const projectSpecificPath = getProjectRoute(routePath);
+
+    // Check both the original path and project-specific path
+    return location.pathname === routePath ||
+           location.pathname === projectSpecificPath ||
+           location.pathname.startsWith(routePath + '/') ||
+           location.pathname.startsWith(projectSpecificPath + '/');
+  };
+
+  // Handle navigation with project-specific routes
+  const handleNavigation = (routePath) => {
+    const targetPath = getProjectRoute(routePath);
+    navigate(targetPath);
   };
 
   return (
@@ -55,7 +77,7 @@ export default function Sidebar() {
                     ? 'bg-white text-[#669BBC] font-semibold'
                     : 'text-black hover:bg-white hover:text-[#669BBC]'
                   }`}
-                onClick={() => navigate(route.path)}
+                onClick={() => handleNavigation(route.path)}
               >
                 {route.icon} {route.name}
               </div>

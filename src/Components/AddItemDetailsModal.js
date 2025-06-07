@@ -1,7 +1,9 @@
 import React, { useState } from "react";
+import { useToast } from "../context/ToastContext";
 
 const AddItemDetailsModal = (props) => {
   const { setShowItemDetailsModal, handleAddItemDetails, selectedItem } = props;
+  const { showSuccess, showError } = useToast();
   const [formData, setFormData] = useState({
     drno: "",
     particulars: selectedItem.name || "",
@@ -36,18 +38,19 @@ const AddItemDetailsModal = (props) => {
 
     // Validate form data
     if (!formData.drno || !formData.particulars || !formData.date || !formData.amount) {
-      alert("Please fill in all required fields");
+      showError("Please fill in all required fields");
       return;
     }
 
     // Call the parent function to add the item
     handleAddItemDetails(formData);
+    showSuccess(`Item details for "${formData.particulars}" added successfully!`);
 
     // Close the modal
     setShowItemDetailsModal(false);
   };
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center min-h-screen p-4 z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center min-h-screen p-4 z-50">
       <div
         role="dialog"
         aria-modal="true"
