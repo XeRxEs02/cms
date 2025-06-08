@@ -16,7 +16,21 @@ const sidebarroutes = [
     icon: <ChartColumnBig size={18} />,
     name: "Dashboard",
   },
-
+  {
+    path: "/app/generalinfo",
+    icon: <BadgeInfo size={18} />,
+    name: "General Info",
+  },
+  {
+    path: "/app/clientpayments",
+    icon: <CreditCard size={18} />,
+    name: "Client Payments",
+  },
+  {
+    path: "/app/drawings",
+    icon: <DraftingCompass size={18} />,
+    name: "Drawings",
+  },
   {
     path: "/app/dwa",
     icon: <ListTodo size={18} />,
@@ -28,29 +42,14 @@ const sidebarroutes = [
     name: "Inventory",
   },
   {
-    path: "/app/drawings",
-    icon: <DraftingCompass size={18} />,
-    name: "Drawings",
-  },
-  {
-    path: "/app/generalinfo",
-    icon: <BadgeInfo size={18} />,
-    name: "General Info",
-  },
-  {
-    path: "/app/labourbill",
-    icon: <ReceiptIndianRupee size={18} />,
-    name: "Labour Bill",
-  },
-  {
     path: "/app/labourpayments",
     icon: <HandCoins size={18} />,
     name: "Labour Payments",
   },
   {
-    path: "/app/clientpayments",
-    icon: <CreditCard size={18} />,
-    name: "Client Payments",
+    path: "/app/labourbill",
+    icon: <ReceiptIndianRupee size={18} />,
+    name: "Labour Bill",
   },
 ];
 

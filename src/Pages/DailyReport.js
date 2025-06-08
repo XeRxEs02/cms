@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import Navbar from "../Components/Navbar";
 import { useLocation } from "react-router-dom";
-import { ListTodo } from "lucide-react";
+import { ListTodo, FileText, Download } from "lucide-react";
 import AddDailyReportModal from '../Components/AddDailyReportModal';
 import { useAppContext } from '../context/AppContext';
+import * as XLSX from 'xlsx';
+import { useToast } from "../context/ToastContext";
 
 const DailyReport = () => {
   const location = useLocation();
   const [showAddModal, setShowAddModal] = useState(false);
   const { appData, updateDailyReport } = useAppContext();
   const { dailyReport } = appData;
+  const { showSuccess, showInfo } = useToast();
 
   const handleAddEntry = (newEntry) => {
     updateDailyReport({ ...newEntry, isNew: true });
@@ -102,26 +105,84 @@ const DailyReport = () => {
   const totalPaid = groupedTransactions.reduce((sum, entry) => sum + entry.paid, 0);
   const totalBalance = groupedTransactions.reduce((sum, entry) => sum + entry.balance, 0);
 
+  // Handle export to Excel
+  const handleExportToExcel = () => {
+    try {
+      // Create worksheet from transactions data
+      const ws = XLSX.utils.json_to_sheet(groupedTransactions.map(item => ({
+        'No.': item.no,
+        'Particulars': item.particulars,
+        'Date': item.date,
+        'Amount': item.amount,
+        'Paid': item.paid,
+        'Balance': item.balance,
+        'Unit': item.unit,
+        'Quantity': item.quantity,
+        'Remarks': item.remarks
+      })));
+
+      // Add total row
+      XLSX.utils.sheet_add_aoa(ws, [
+        ['Total', '', '', totalAmount, totalPaid, totalBalance, '', '', '']
+      ], { origin: -1 });
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 5 },  // No.
+        { wch: 20 }, // Particulars
+        { wch: 12 }, // Date
+        { wch: 15 }, // Amount
+        { wch: 15 }, // Paid
+        { wch: 15 }, // Balance
+        { wch: 10 }, // Unit
+        { wch: 10 }, // Quantity
+        { wch: 20 }  // Remarks
+      ];
+
+      // Create workbook and append worksheet
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Daily Report');
+
+      // Generate Excel file
+      XLSX.writeFile(wb, 'daily_report.xlsx');
+      showSuccess('Daily report data exported successfully!');
+    } catch (error) {
+      showInfo('Error exporting data to Excel. Please try again.');
+      console.error('Export error:', error);
+    }
+  };
+
   return (
     <>
-      <Navbar currentPath={location.pathname} icon={ListTodo} />
-      <div className="p-4 min-h-screen bg-gray-50">
+      <Navbar currentPath={location.pathname} icon={FileText} />
+      <div className="px-2 min-h-screen bg-gray-50">
         {/* Header */}
-        <div className="mb-6">
+        <div className="mb-4">
           <h1 className="text-2xl font-bold text-[#2C3E50] mb-2">Daily Report</h1>
           <p className="text-[#7C8CA1]">Track daily expenses and payments</p>
         </div>
 
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-4 mb-4">
+          <button 
+            onClick={handleExportToExcel}
+            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center gap-2"
+          >
+            <Download size={18} />
+            EXPORT TO EXCEL
+          </button>
+        </div>
+
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* Existing Balance */}
-          <div className="bg-[#7BAFD4] rounded-lg p-6 relative overflow-hidden">
-            <div className="relative z-10">
+          <div className="bg-[#7BAFD4] rounded-lg p-6 flex items-center justify-between">
+            <div>
               <h3 className="text-lg font-semibold text-[#2C3E50]">Existing Balance</h3>
               <p className="text-3xl font-bold text-[#2C3E50]">{dailyReport.existingBalance} L</p>
             </div>
-            <div className="absolute right-0 top-0 h-full w-1/2">
-              {renderCircularProgress(75, 150)}
+            <div className="w-24 h-24">
+              {renderCircularProgress(75, 96)}
             </div>
           </div>
 
@@ -132,7 +193,7 @@ const DailyReport = () => {
               <p className="text-2xl font-bold text-[#2C3E50]">₹{dailyReport.budgetSpent.amount}</p>
               <p className="text-sm text-[#2C3E50]">/ ₹{dailyReport.budgetSpent.total}</p>
             </div>
-            <div className="mt-2">
+            <div className="mt-4">
               <div className="w-full bg-[#2C3E50]/30 rounded-full h-2">
                 <div
                   className="bg-red-600 h-2 rounded-full"
@@ -149,8 +210,8 @@ const DailyReport = () => {
               <h3 className="text-lg font-semibold text-[#2C3E50]">Budget Spent</h3>
               <p className="text-3xl font-bold text-red-600">{dailyReport.budgetSpent.percentage}%</p>
             </div>
-            <div className="w-20 h-20">
-              {renderCircularProgress(dailyReport.budgetSpent.percentage, 80)}
+            <div className="w-24 h-24">
+              {renderCircularProgress(dailyReport.budgetSpent.percentage, 96)}
             </div>
           </div>
 
@@ -160,14 +221,14 @@ const DailyReport = () => {
               <h3 className="text-lg font-semibold text-[#2C3E50]">Balance To Be Paid</h3>
               <p className="text-3xl font-bold text-red-600">{dailyReport.balanceToBePaid.percentage}%</p>
             </div>
-            <div className="w-20 h-20">
-              {renderCircularProgress(dailyReport.balanceToBePaid.percentage, 80)}
+            <div className="w-24 h-24">
+              {renderCircularProgress(dailyReport.balanceToBePaid.percentage, 96)}
             </div>
           </div>
         </div>
 
         {/* Data Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-gray-50">
@@ -190,9 +251,6 @@ const DailyReport = () => {
                     <td className="px-6 py-4">
                       <div className="flex items-center">
                         <span className="text-[#7BAFD4]">{entry.particulars}</span>
-                        <span className="ml-2 text-xs text-gray-500">
-                          ({entry.transactions.length} transactions)
-                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">{entry.date}</td>
@@ -208,7 +266,7 @@ const DailyReport = () => {
               <tfoot className="bg-gray-50">
                 <tr>
                   <td colSpan="3" className="px-6 py-4 text-right font-semibold text-[#2C3E50]">
-                    Total ({groupedTransactions.length} unique items)
+                    Total
                   </td>
                   <td className="px-6 py-4 font-semibold text-[#2C3E50]">₹{totalAmount}</td>
                   <td className="px-6 py-4 font-semibold text-[#2C3E50]">₹{totalPaid}</td>

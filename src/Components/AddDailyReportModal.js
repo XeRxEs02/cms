@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { useAppContext } from '../context/AppContext';
 
 const AddDailyReportModal = ({ isOpen, onClose, onAdd }) => {
-  const { appData } = useAppContext();
   const [formData, setFormData] = useState({
     particulars: '',
     date: new Date().toISOString().split('T')[0],

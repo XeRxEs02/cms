@@ -1,89 +1,80 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Check, X, AlertTriangle, Info } from 'lucide-react';
 
-const Toast = ({ message, type = 'success', isVisible, onClose, duration = 3000 }) => {
+const Toast = ({ message, type = 'success', duration = 3000, onClose }) => {
+  const [isVisible, setIsVisible] = useState(true);
+
   useEffect(() => {
-    if (isVisible && duration > 0) {
-      const timer = setTimeout(() => {
-        onClose();
-      }, duration);
+    const timer = setTimeout(() => {
+      setIsVisible(false);
+      if (onClose) onClose();
+    }, duration);
 
-      return () => clearTimeout(timer);
-    }
-  }, [isVisible, duration, onClose]);
+    return () => clearTimeout(timer);
+  }, [duration, onClose]);
 
   if (!isVisible) return null;
 
-  const getToastStyles = () => {
-    const baseStyles = "fixed top-4 right-4 z-[10000] flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 ease-in-out min-w-[300px]";
-
+  const getIcon = () => {
     switch (type) {
       case 'success':
-        return `${baseStyles} bg-green-500 text-white`;
+        return <Check className="w-5 h-5" />;
       case 'error':
-        return `${baseStyles} bg-red-500 text-white`;
+        return <X className="w-5 h-5" />;
       case 'warning':
-        return `${baseStyles} bg-yellow-500 text-white`;
+        return <AlertTriangle className="w-5 h-5" />;
       case 'info':
-        return `${baseStyles} bg-blue-500 text-white`;
+        return <Info className="w-5 h-5" />;
       default:
-        return `${baseStyles} bg-gray-500 text-white`;
+        return null;
     }
   };
 
-  // Custom SVG icons without external dependencies
-  const getIcon = () => {
-    const iconProps = {
-      width: "20",
-      height: "20",
-      viewBox: "0 0 24 24",
-      fill: "currentColor"
-    };
-
+  const getStyles = () => {
+    const baseStyles = "flex items-center p-4 rounded-lg shadow-lg border transition-all duration-300";
     switch (type) {
       case 'success':
-        return (
-          <svg {...iconProps}>
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-          </svg>
-        );
+        return `${baseStyles} bg-green-50 border-green-200 text-green-800`;
       case 'error':
-        return (
-          <svg {...iconProps}>
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/>
-          </svg>
-        );
+        return `${baseStyles} bg-red-50 border-red-200 text-red-800`;
       case 'warning':
-        return (
-          <svg {...iconProps}>
-            <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
-          </svg>
-        );
+        return `${baseStyles} bg-yellow-50 border-yellow-200 text-yellow-800`;
       case 'info':
-        return (
-          <svg {...iconProps}>
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-          </svg>
-        );
+        return `${baseStyles} bg-blue-50 border-blue-200 text-blue-800`;
       default:
-        return (
-          <svg {...iconProps}>
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-          </svg>
-        );
+        return `${baseStyles} bg-gray-50 border-gray-200 text-gray-800`;
+    }
+  };
+
+  const getIconStyles = () => {
+    switch (type) {
+      case 'success':
+        return "text-green-500";
+      case 'error':
+        return "text-red-500";
+      case 'warning':
+        return "text-yellow-500";
+      case 'info':
+        return "text-blue-500";
+      default:
+        return "text-gray-500";
     }
   };
 
   return (
-    <div className={getToastStyles()}>
-      {getIcon()}
-      <span className="font-medium text-sm flex-1">{message}</span>
+    <div className={`${getStyles()} animate-slide-in min-w-[300px] max-w-md`}>
+      <div className={`mr-3 ${getIconStyles()}`}>
+        {getIcon()}
+      </div>
+      <p className="flex-1 text-sm font-medium">{message}</p>
       <button
-        onClick={onClose}
-        className="ml-2 hover:bg-white hover:bg-opacity-20 rounded-full p-1 transition-colors flex-shrink-0"
+        onClick={() => {
+          setIsVisible(false);
+          if (onClose) onClose();
+        }}
+        className={`ml-3 ${getIconStyles()} hover:opacity-75 transition-opacity`}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-        </svg>
+        <X className="w-4 h-4" />
       </button>
     </div>
   );

@@ -21,6 +21,20 @@ module.exports = {
         '8xl': '88rem',
         '9xl': '96rem',
       },
+      keyframes: {
+        'slide-in': {
+          '0%': { transform: 'translateX(100%)' },
+          '100%': { transform: 'translateX(0)' }
+        },
+        'fade-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' }
+        }
+      },
+      animation: {
+        'slide-in': 'slide-in 0.3s ease-out',
+        'fade-in': 'fade-in 0.3s ease-out'
+      }
     },
   },
   plugins: [],

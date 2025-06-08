@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar from "../Components/Navbar";
 import { useLocation } from "react-router-dom";
-import { DraftingCompass, Search, Upload, X, Eye, FileText, Image } from "lucide-react";
+import { DraftingCompass, Search, Upload, X, Eye, FileText, Image, Check, X as XMark } from "lucide-react";
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { useToast } from '../context/ToastContext';
 
 // Initial drawings data
 const initialDrawings = [
@@ -11,13 +13,11 @@ const initialDrawings = [
   { id: 4, no: "04", name: "Blue Print", status: "Submitted", file: null },
 ];
 const statusClasses = {
-  Approved:
-    "text-green-600 border border-green-500 px-2 py-0.5 rounded-full text-xs",
-  Rejected:
-    "text-red-600 border border-red-500 px-2 py-0.5 rounded-full text-xs",
-  Submitted:
-    "text-red-600 border border-red-500 px-2 py-0.5 rounded-full text-xs",
-  Reupload: "bg-red-500 text-white px-2 py-0.5 rounded-full text-xs",
+  Approved: "text-green-600 border border-green-500 px-2 py-0.5 rounded-full text-xs",
+  Rejected: "text-red-600 border border-red-500 px-2 py-0.5 rounded-full text-xs",
+  Submitted: "text-blue-600 border border-blue-500 px-2 py-0.5 rounded-full text-xs",
+  Resubmitted: "text-blue-600 border border-blue-500 px-2 py-0.5 rounded-full text-xs",
+  Reupload: "bg-red-500 text-white px-2 py-0.5 rounded-full text-xs cursor-pointer hover:bg-red-600",
 };
 
 function FilterIcon({ className }) {
@@ -71,10 +71,16 @@ function CustomInput({ className, ...props }) {
 }
 
 // Upload Drawing Modal Component
-const UploadDrawingModal = ({ isOpen, onClose, onUpload }) => {
+const UploadDrawingModal = ({ isOpen, onClose, onUpload, selectedDrawing, onResubmit }) => {
   const [drawingName, setDrawingName] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (selectedDrawing) {
+      setDrawingName(selectedDrawing.name);
+    }
+  }, [selectedDrawing]);
 
   // Allowed file types
   const allowedTypes = [
@@ -107,10 +113,19 @@ const UploadDrawingModal = ({ isOpen, onClose, onUpload }) => {
       return;
     }
 
-    onUpload({
-      name: drawingName,
-      file: selectedFile
-    });
+    if (selectedDrawing) {
+      // This is a resubmission
+      onResubmit({
+        ...selectedDrawing,
+        file: selectedFile
+      });
+    } else {
+      // This is a new submission
+      onUpload({
+        name: drawingName,
+        file: selectedFile
+      });
+    }
 
     // Reset form
     setDrawingName("");
@@ -125,7 +140,9 @@ const UploadDrawingModal = ({ isOpen, onClose, onUpload }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Upload Drawing</h2>
+          <h2 className="text-xl font-semibold">
+            {selectedDrawing ? "Resubmit Drawing" : "Upload Drawing"}
+          </h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
             <X size={20} />
           </button>
@@ -141,6 +158,7 @@ const UploadDrawingModal = ({ isOpen, onClose, onUpload }) => {
               onChange={(e) => setDrawingName(e.target.value)}
               className="w-full border border-gray-300 rounded-md p-2"
               placeholder="Enter drawing name"
+              disabled={selectedDrawing}
             />
           </div>
 
@@ -184,7 +202,7 @@ const UploadDrawingModal = ({ isOpen, onClose, onUpload }) => {
               type="submit"
               className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
             >
-              Upload
+              {selectedDrawing ? "Resubmit" : "Upload"}
             </button>
           </div>
         </form>
@@ -194,10 +212,136 @@ const UploadDrawingModal = ({ isOpen, onClose, onUpload }) => {
 };
 
 // View Drawing Modal Component
-const ViewDrawingModal = ({ isOpen, onClose, drawing }) => {
+const ViewDrawingModal = ({ isOpen, onClose, drawing, onStatusChange }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { showToast } = useToast();
+
   if (!isOpen || !drawing) return null;
 
   const isPDF = drawing.file.type === "application/pdf";
+  const isImage = drawing.file.type.startsWith("image/");
+
+  const addWatermarkToImage = async (file) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        // Create canvas
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size to image size
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        // Draw original image
+        ctx.drawImage(img, 0, 0);
+        
+        // Configure watermark
+        const watermarkText = 'APPROVED';
+        ctx.fillStyle = 'rgba(128, 128, 128, 0.15)'; // Grey with 15% opacity
+        
+        // Single smaller watermark
+        const fontSize = Math.min(canvas.width, canvas.height) * 0.1;
+        ctx.font = `bold ${fontSize}px Arial`;
+        
+        // Center the watermark
+        const textMetrics = ctx.measureText(watermarkText);
+        const x = (canvas.width - textMetrics.width) / 2;
+        const y = (canvas.height + fontSize / 2) / 2;
+        
+        ctx.fillText(watermarkText, x, y);
+        
+        // Convert canvas to blob
+        canvas.toBlob((blob) => {
+          const watermarkedFile = new File([blob], file.name, { type: file.type });
+          resolve(watermarkedFile);
+        }, file.type);
+      };
+      
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const handleApprove = async () => {
+    setIsProcessing(true);
+    try {
+      let watermarkedFile;
+
+      if (isPDF) {
+        console.log('Processing PDF...');
+        const fileReader = new FileReader();
+        
+        const pdfBytes = await new Promise((resolve, reject) => {
+          fileReader.onload = () => resolve(fileReader.result);
+          fileReader.onerror = reject;
+          fileReader.readAsArrayBuffer(drawing.file);
+        });
+        
+        const pdfDoc = await PDFDocument.load(pdfBytes);
+        const helveticaFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+        
+        const pages = pdfDoc.getPages();
+        pages.forEach((page) => {
+          const { width, height } = page.getSize();
+          
+          // Add single watermark
+          const watermarkText = 'APPROVED';
+          const fontSize = Math.min(width, height) * 0.1;
+          const textWidth = helveticaFont.widthOfTextAtSize(watermarkText, fontSize);
+          const textHeight = fontSize;
+
+          // Center watermark
+          const centerX = (width - textWidth) / 2;
+          const centerY = (height - textHeight) / 2;
+
+          // Draw single watermark with grey color and minimal transparency
+          page.drawText(watermarkText, {
+            x: centerX,
+            y: centerY,
+            size: fontSize,
+            font: helveticaFont,
+            color: rgb(0.5, 0.5, 0.5),
+            opacity: 0.15
+          });
+        });
+
+        const modifiedPdfBytes = await pdfDoc.save();
+        watermarkedFile = new File([modifiedPdfBytes], drawing.file.name, { type: 'application/pdf' });
+      } else if (isImage) {
+        console.log('Processing image...');
+        watermarkedFile = await addWatermarkToImage(drawing.file);
+      } else {
+        throw new Error('Unsupported file type');
+      }
+      
+      onStatusChange(drawing.id, "Approved", watermarkedFile);
+      showToast(`Drawing "${drawing.name}" has been approved`, 'success');
+      onClose();
+    } catch (error) {
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        errorObject: error
+      });
+      showToast('Failed to approve drawing', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReject = () => {
+    onStatusChange(drawing.id, "Rejected");
+    showToast(`Drawing "${drawing.name}" rejected`, 'error');
+    onClose();
+  };
+
+  const showActionButtons = () => {
+    // Show buttons only if:
+    // 1. Status is "Submitted" (first submission)
+    // 2. Status is "Resubmitted" (after rejection)
+    return drawing.status === "Submitted" || drawing.status === "Resubmitted";
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -225,7 +369,27 @@ const ViewDrawingModal = ({ isOpen, onClose, drawing }) => {
           )}
         </div>
 
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex justify-end space-x-3">
+          {showActionButtons() && (
+            <>
+              <button
+                onClick={handleReject}
+                disabled={isProcessing}
+                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <XMark size={16} className="mr-1" />
+                Reject
+              </button>
+              <button
+                onClick={handleApprove}
+                disabled={isProcessing}
+                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Check size={16} className="mr-1" />
+                {isProcessing ? 'Processing...' : 'Approve'}
+              </button>
+            </>
+          )}
           <button
             onClick={onClose}
             className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
@@ -256,6 +420,34 @@ const Billing = () => {
     };
 
     setDrawings([...drawings, newDrawing]);
+  };
+
+  // Function to handle status change
+  const handleStatusChange = (drawingId, newStatus, newFile = null) => {
+    setDrawings(drawings.map(drawing => {
+      if (drawing.id === drawingId) {
+        return {
+          ...drawing,
+          status: newStatus,
+          file: newFile || drawing.file
+        };
+      }
+      return drawing;
+    }));
+  };
+
+  // Function to handle resubmission
+  const handleResubmission = (drawing) => {
+    setDrawings(drawings.map(d => {
+      if (d.id === drawing.id) {
+        return {
+          ...d,
+          status: "Resubmitted",
+          file: drawing.file
+        };
+      }
+      return d;
+    }));
   };
 
   // Function to handle drawing view
@@ -322,7 +514,7 @@ const Billing = () => {
                         {drawing.status}
                       </span>
                       <span
-                        className={statusClasses["Reupload"] + " cursor-pointer"}
+                        className={statusClasses["Reupload"]}
                         onClick={() => {
                           setSelectedDrawing(drawing);
                           setIsUploadModalOpen(true);
@@ -372,15 +564,24 @@ const Billing = () => {
       {/* Upload Drawing Modal */}
       <UploadDrawingModal
         isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
+        onClose={() => {
+          setIsUploadModalOpen(false);
+          setSelectedDrawing(null);
+        }}
         onUpload={handleDrawingUpload}
+        selectedDrawing={selectedDrawing}
+        onResubmit={handleResubmission}
       />
 
       {/* View Drawing Modal */}
       <ViewDrawingModal
         isOpen={isViewModalOpen}
-        onClose={() => setIsViewModalOpen(false)}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setSelectedDrawing(null);
+        }}
         drawing={selectedDrawing}
+        onStatusChange={handleStatusChange}
       />
     </>
   );

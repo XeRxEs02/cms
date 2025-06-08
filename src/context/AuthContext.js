@@ -15,14 +15,29 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // Clear any existing authentication data on initialization
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('userData');
-    localStorage.removeItem('selectedProject');
-    
-    setIsAuthenticated(false);
-    setUser(null);
-    setIsLoading(false);
+    // Check authentication on page load/refresh
+    const checkAuth = () => {
+      try {
+        const authState = localStorage.getItem('isAuthenticated');
+        const userData = localStorage.getItem('userData');
+
+        if (authState === 'true' && userData) {
+          setIsAuthenticated(true);
+          setUser(JSON.parse(userData));
+        } else {
+          setIsAuthenticated(false);
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Error checking authentication:', error);
+        setIsAuthenticated(false);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
   }, []);
 
   // Login function

@@ -12,7 +12,6 @@ const AddLabourBillModal = ({ setShowModal, addLabourBill }) => {
     manson: 0,
     mhelper: 0,
     whelper: 0,
-    total: 0,
     amount: 0,
     extrapayment: 0,
     remarks: "",
@@ -22,9 +21,6 @@ const AddLabourBillModal = ({ setShowModal, addLabourBill }) => {
   const handleStaffChange = (field, value) => {
     const numValue = parseInt(value) || 0;
     const updatedData = { ...formData, [field]: numValue };
-
-    // Calculate total staff
-    const totalStaff = updatedData.headmanson + updatedData.manson + updatedData.mhelper + updatedData.whelper;
 
     // Calculate amount based on rates
     const calculatedAmount = calculateDailyAmount(
@@ -36,7 +32,6 @@ const AddLabourBillModal = ({ setShowModal, addLabourBill }) => {
 
     setFormData({
       ...updatedData,
-      total: totalStaff,
       amount: calculatedAmount
     });
   };
@@ -54,7 +49,7 @@ const AddLabourBillModal = ({ setShowModal, addLabourBill }) => {
       return;
     }
 
-    if (formData.total === 0) {
+    if (formData.headmanson === 0 && formData.manson === 0 && formData.mhelper === 0 && formData.whelper === 0) {
       showError("Please add at least one staff member.");
       return;
     }
@@ -148,29 +143,16 @@ const AddLabourBillModal = ({ setShowModal, addLabourBill }) => {
               />
             </div>
           </div>
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[150px]">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Total Staff
-              </label>
-              <input
-                type="number"
-                value={formData.total}
-                className="w-full border border-gray-300 rounded-md p-2 bg-gray-100"
-                readOnly
-              />
-            </div>
-            <div className="flex-1 min-w-[150px]">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Calculated Amount (₹)
-              </label>
-              <input
-                type="number"
-                value={formData.amount}
-                className="w-full border border-gray-300 rounded-md p-2 bg-gray-100"
-                readOnly
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">
+              Calculated Amount (₹)
+            </label>
+            <input
+              type="number"
+              value={formData.amount}
+              className="w-full border border-gray-300 rounded-md p-2 bg-gray-100"
+              readOnly
+            />
           </div>
 
           <div>
@@ -205,39 +187,27 @@ const AddLabourBillModal = ({ setShowModal, addLabourBill }) => {
               Remarks
             </label>
             <textarea
-              rows="2"
               value={formData.remarks}
               onChange={(e) => handleInputChange('remarks', e.target.value)}
               className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
               placeholder="Additional notes or comments"
+              rows="2"
             />
           </div>
 
-          {formData.amount > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-              <h4 className="font-semibold text-blue-800 mb-2">Payment Summary</h4>
-              <div className="text-sm text-blue-700">
-                <p>Base Amount: ₹{formData.amount}</p>
-                <p>Extra Payment: ₹{formData.extrapayment}</p>
-                <p className="font-semibold border-t border-blue-200 pt-1 mt-1">
-                  Total Amount: ₹{formData.amount + formData.extrapayment}
-                </p>
-              </div>
-            </div>
-          )}
-          <div className="flex justify-end space-x-3">
+          <div className="flex justify-end gap-4 mt-6">
             <button
               type="button"
-              className="px-4 py-2 rounded-md border border-gray-300 hover:bg-gray-100"
               onClick={() => setShowModal(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-md bg-red-500 text-white font-semibold hover:bg-red-600"
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md"
             >
-              Add Bill
+              Add Labour Bill
             </button>
           </div>
         </form>

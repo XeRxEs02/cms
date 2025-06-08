@@ -1,14 +1,19 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import Toast from '../Components/Toast';
+import ToastContainer from './ToastContainer';
 
 const ToastContext = createContext(null);
 
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
 
-  const showToast = useCallback((message, type = 'success') => {
+  const addToast = useCallback((message, type = 'info') => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
+
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+      removeToast(id);
+    }, 3000);
   }, []);
 
   const removeToast = useCallback((id) => {
@@ -16,35 +21,29 @@ export const ToastProvider = ({ children }) => {
   }, []);
 
   const showSuccess = useCallback((message) => {
-    showToast(message, 'success');
-  }, [showToast]);
+    addToast(message, 'success');
+  }, [addToast]);
 
   const showError = useCallback((message) => {
-    showToast(message, 'error');
-  }, [showToast]);
+    addToast(message, 'error');
+  }, [addToast]);
 
   const showInfo = useCallback((message) => {
-    showToast(message, 'info');
-  }, [showToast]);
+    addToast(message, 'info');
+  }, [addToast]);
 
   const showWarning = useCallback((message) => {
-    showToast(message, 'warning');
-  }, [showToast]);
+    addToast(message, 'warning');
+  }, [addToast]);
 
-  return (
-    <ToastContext.Provider value={{ showToast, showSuccess, showError, showInfo, showWarning }}>
-      {children}
-      <div className="fixed bottom-4 right-4 z-50 space-y-2">
-        {toasts.map(toast => (
-          <Toast
-            key={toast.id}
-            message={toast.message}
-            type={toast.type}
-            onClose={() => removeToast(toast.id)}
-          />
-        ))}
-      </div>
-    </ToastContext.Provider>
+  return React.createElement(ToastContext.Provider, {
+    value: { showSuccess, showError, showInfo, showWarning }
+  },
+    children,
+    React.createElement(ToastContainer, {
+      toasts,
+      removeToast
+    })
   );
 };
 
@@ -55,3 +54,5 @@ export const useToast = () => {
   }
   return context;
 };
+
+export default ToastContext; 

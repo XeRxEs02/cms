@@ -25,6 +25,9 @@ export const LabourProvider = ({ children }) => {
   // Labour payment data (completed weeks)
   const [labourPaymentData, setLabourPaymentData] = useState([]);
 
+  // Counter for sequential IDs
+  const [nextId, setNextId] = useState(1);
+
   // Current week data (Monday to Saturday)
   const [currentWeekData, setCurrentWeekData] = useState({
     weekNumber: 1,
@@ -119,14 +122,13 @@ export const LabourProvider = ({ children }) => {
   // Add daily entry directly to Labour Bill
   const addDailyEntryToLabourBill = (day, data) => {
     const labourEntry = {
-      id: Date.now() + Math.random(),
+      id: nextId,
       date: getDateForDay(day, currentWeekData.weekNumber),
       barbender: data.workType || 'General Work',
       headmanson: data.headMason,
       manson: data.mason,
       mhelper: data.mHelper,
       whelper: data.wHelper,
-      total: data.headMason + data.mason + data.mHelper + data.wHelper,
       amount: data.amount,
       extrapayment: 0,
       remarks: data.remarks || '',
@@ -135,6 +137,7 @@ export const LabourProvider = ({ children }) => {
     };
 
     setWeeklyLabourData(prev => [...prev, labourEntry]);
+    setNextId(prev => prev + 1);
     return labourEntry;
   };
 
@@ -165,7 +168,9 @@ export const LabourProvider = ({ children }) => {
     updateDailyData,
     completeWeek,
     isWeekComplete,
-    addDailyEntryToLabourBill
+    addDailyEntryToLabourBill,
+    nextId,
+    setNextId
   };
 
   return (

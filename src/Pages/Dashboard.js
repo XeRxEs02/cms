@@ -280,7 +280,7 @@ const Dashboard = () => {
 
       {/* Enhanced Project header with timeline and insights */}
       {selectedProject && (
-        <div className="px-6 pt-2 pb-4">
+        <div className="pl-0 pr-4 pt-2 pb-4">
           <div className="flex items-center justify-between mb-4">
             <button
               onClick={handleBackToProjects}
@@ -365,9 +365,9 @@ const Dashboard = () => {
         </div>
       )}
 
-      <div className="p-3 sm:p-4 md:p-6]">
+      <div className="pl-0 pr-4">
         {/* Top row of cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           {/* Total Installments Card */}
           <div className="bg-white border-2 border-[#7BAFD4] rounded-md p-4 shadow relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-12 bg-[#7BAFD4]"></div>
@@ -446,7 +446,7 @@ const Dashboard = () => {
         </div>
 
         {/* Middle row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           {/* Existing Balance Chart */}
           <div className="bg-[#7BAFD4] rounded-md p-4 shadow-md border-2 border-white">
             <div className="text-white text-sm sm:text-base font-medium mb-4">Existing Balance : {dashboardData?.existingBalance || 0} L</div>

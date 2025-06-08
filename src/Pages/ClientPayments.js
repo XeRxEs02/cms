@@ -1,141 +1,10 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import Navbar from "../Components/Navbar";
 import { useLocation } from "react-router-dom";
-import { CreditCard, Edit, Save, DollarSign, Plus, X, Upload, Download } from "lucide-react";
+import { CreditCard, Plus, X, Upload, Download, Wallet, CircleDollarSign, BarChart3, AlertCircle } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 import * as XLSX from 'xlsx';
-
-const AddPaymentModal = ({ isOpen, onClose, onAdd }) => {
-  const [formData, setFormData] = useState({
-    particulars: "",
-    date: new Date().toISOString().split('T')[0],
-    amount: "",
-    paidThrough: "Cash",
-    remarks: "-"
-  });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onAdd({
-      no: String(Date.now()).slice(-2),
-      ...formData,
-      amount: parseInt(formData.amount)
-    });
-    onClose();
-    setFormData({
-      particulars: "",
-      date: new Date().toISOString().split('T')[0],
-      amount: "",
-      paidThrough: "Cash",
-      remarks: "-"
-    });
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Add New Payment Entry</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Particulars
-            </label>
-            <input
-              type="text"
-              value={formData.particulars}
-              onChange={(e) => setFormData({ ...formData, particulars: e.target.value })}
-              className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g., Installment - 6"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Date
-            </label>
-            <input
-              type="date"
-              value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Amount (₹)
-            </label>
-            <input
-              type="number"
-              value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter amount"
-              min="0"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Paid Through
-            </label>
-            <select
-              value={formData.paidThrough}
-              onChange={(e) => setFormData({ ...formData, paidThrough: e.target.value })}
-              className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            >
-              <option value="Cash">Cash</option>
-              <option value="Cheque">Cheque</option>
-              <option value="Bank Transfer">Bank Transfer</option>
-              <option value="UPI">UPI</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Remarks
-            </label>
-            <input
-              type="text"
-              value={formData.remarks}
-              onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-              className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Optional remarks"
-            />
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600"
-            >
-              Add Payment
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
+import AddPaymentModal from "../Components/AddPaymentModal";
 
 const ClientPayments = () => {
   const location = useLocation();
@@ -163,21 +32,148 @@ const ClientPayments = () => {
     }
   ]);
 
-  // Calculate totals
-  const totalAmount = paymentData.reduce((sum, item) => sum + item.amount, 0);
-  const totalInstallments = "2 / 5";
-  const paymentsDone = "4 L / 10 L";
-  const paymentsDonePercent = 40;
-  const expectedPaymentsPercent = 60;
+  // Calculate analytics data
+  const analytics = useMemo(() => {
+    // Calculate total amount and convert to Lakhs
+    const totalAmount = paymentData.reduce((sum, item) => sum + item.amount, 0);
+    const totalAmountInLakhs = (totalAmount / 100000).toFixed(1);
+
+    // Project total expected amount (10L) and installments (5)
+    const totalExpectedInLakhs = 10;
+    const totalInstallmentsNeeded = 5;
+    const currentInstallments = paymentData.length;
+
+    // Calculate percentages
+    const paymentsDonePercent = Math.round((totalAmountInLakhs / totalExpectedInLakhs) * 100);
+    const expectedPaymentsPercent = Math.round(((totalExpectedInLakhs - totalAmountInLakhs) / totalExpectedInLakhs) * 100);
+
+    // Monthly data for trends
+    const monthlyData = paymentData.reduce((acc, payment) => {
+      const date = new Date(payment.date);
+      const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`;
+      
+      if (!acc[monthYear]) {
+        acc[monthYear] = {
+          month: monthYear,
+          amount: 0,
+          count: 0
+        };
+      }
+      
+      acc[monthYear].amount += payment.amount / 100000; // Convert to lakhs
+      acc[monthYear].count += 1;
+      
+      return acc;
+    }, {});
+
+    return {
+      totalInstallments: {
+        current: currentInstallments,
+        total: totalInstallmentsNeeded,
+        display: `${currentInstallments} / ${totalInstallmentsNeeded}`
+      },
+      paymentsDone: {
+        current: totalAmountInLakhs,
+        total: totalExpectedInLakhs,
+        display: `${totalAmountInLakhs} L / ${totalExpectedInLakhs} L`
+      },
+      percentages: {
+        done: paymentsDonePercent,
+        expected: expectedPaymentsPercent
+      },
+      monthlyTrends: Object.values(monthlyData)
+    };
+  }, [paymentData]);
+
+  // Render circular progress
+  const renderCircularProgress = (percentage, color = "#EF4444") => {
+    const size = 120;
+    const strokeWidth = 8;
+    const radius = (size - strokeWidth) / 2;
+    const circumference = radius * 2 * Math.PI;
+    const offset = circumference - (percentage / 100) * circumference;
+
+    return (
+      <svg width={size} height={size} className="transform -rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#2C3E50"
+          strokeOpacity="0.3"
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  };
+
+  // Render bar chart
+  const renderBarChart = () => {
+    if (!analytics.monthlyTrends || analytics.monthlyTrends.length === 0) {
+      return <div className="flex items-center justify-center h-40 text-white">No data available</div>;
+    }
+
+    const maxValue = Math.max(
+      ...analytics.monthlyTrends.map(data => Math.max(data.amount, data.amount))
+    );
+
+    return (
+      <div className="flex h-40 items-end justify-between space-x-0.5 sm:space-x-1 px-1 sm:px-2 overflow-x-auto">
+        {analytics.monthlyTrends.map((data, index) => {
+          const amountHeight = `${(data.amount / maxValue) * 100}%`;
+          const countHeight = `${(data.amount / maxValue) * 100}%`;
+
+          return (
+            <div key={index} className="flex flex-col items-center flex-shrink-0">
+              <div className="flex space-x-0.5 sm:space-x-1">
+                <div
+                  className="w-2 sm:w-3 md:w-4 bg-red-500 rounded-t-sm"
+                  style={{
+                    height: amountHeight,
+                    minHeight: '8px'
+                  }}
+                ></div>
+                <div
+                  className="w-2 sm:w-3 md:w-4 bg-red-400 rounded-t-sm"
+                  style={{
+                    height: countHeight,
+                    minHeight: '8px'
+                  }}
+                ></div>
+              </div>
+              <div className="text-[10px] sm:text-xs text-gray-600 mt-1 font-medium">{data.month}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   // Format number with commas
   const formatNumber = (num) => {
-    return num.toLocaleString();
+    return num.toLocaleString('en-IN');
   };
 
   // Handle adding new payment
   const handleAddPayment = (newPayment) => {
-    setPaymentData([...paymentData, newPayment]);
+    const nextNo = (paymentData.length + 1).toString().padStart(2, '0');
+    const paymentWithId = {
+      ...newPayment,
+      no: nextNo
+    };
+    setPaymentData([...paymentData, paymentWithId]);
     showSuccess("New payment entry added successfully!");
   };
 
@@ -186,17 +182,12 @@ const ClientPayments = () => {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Check file type
     if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
       showInfo("Please upload an Excel file (.xlsx or .xls)");
       return;
     }
 
-    // Here you would typically process the Excel file
-    // For now, we'll just show a success message
     showSuccess("Payment plan uploaded successfully!");
-
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -205,7 +196,6 @@ const ClientPayments = () => {
   // Handle export to Excel
   const handleExportToExcel = () => {
     try {
-      // Create worksheet from payment data
       const ws = XLSX.utils.json_to_sheet(paymentData.map(item => ({
         'No.': item.no,
         'Particulars': item.particulars,
@@ -215,26 +205,22 @@ const ClientPayments = () => {
         'Remarks': item.remarks
       })));
 
-      // Add total row
       XLSX.utils.sheet_add_aoa(ws, [
-        ['Total', '', '', totalAmount, '', '']
+        ['Total', '', '', analytics.paymentsDone.current * 100000, '', '']
       ], { origin: -1 });
 
-      // Set column widths
       ws['!cols'] = [
-        { wch: 5 },  // No.
-        { wch: 20 }, // Particulars
-        { wch: 12 }, // Date
-        { wch: 15 }, // Amount
-        { wch: 15 }, // Paid Through
-        { wch: 20 }  // Remarks
+        { wch: 5 },
+        { wch: 20 },
+        { wch: 12 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 20 }
       ];
 
-      // Create workbook and append worksheet
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Client Payments');
 
-      // Generate Excel file
       XLSX.writeFile(wb, 'client_payments.xlsx');
       showSuccess('Payment data exported successfully!');
     } catch (error) {
@@ -243,71 +229,58 @@ const ClientPayments = () => {
     }
   };
 
-  // Trigger file input click
-  const handleUploadClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
   return (
     <>
       <Navbar currentPath={location.pathname} icon={CreditCard} />
       <div className="p-4 sm:p-6 min-h-screen">
-        {/* Summary Cards */}
-        <div className="flex flex-wrap gap-4 mb-6">
-          <div className="flex-1 bg-white rounded-lg shadow p-4 border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="p-2">
-                  <span className="text-lg font-semibold">{totalInstallments}</span>
-                  <p className="text-sm text-gray-600">Total Installments</p>
-                </div>
-              </div>
+        {/* Analytics Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {/* Total Installments Card */}
+          <div className="bg-white rounded-lg p-4">
+            <div className="text-xl font-semibold mb-1">
+              {analytics.totalInstallments.display}
             </div>
+            <div className="text-gray-600 text-sm">Total Installments</div>
           </div>
 
-          <div className="flex-1 bg-white rounded-lg shadow p-4 border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="p-2">
-                  <span className="text-lg font-semibold">{paymentsDone}</span>
-                  <p className="text-sm text-gray-600">Payments Done</p>
-                </div>
-              </div>
+          {/* Payments Done Card */}
+          <div className="bg-white rounded-lg p-4">
+            <div className="text-xl font-semibold mb-1">
+              {analytics.paymentsDone.display}
             </div>
+            <div className="text-gray-600 text-sm">Payments Done</div>
           </div>
 
-          <div className="flex-1 bg-white rounded-lg shadow p-4 border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="p-2">
-                  <div className="relative w-full h-2 bg-gray-200 rounded">
-                    <div 
-                      className="absolute top-0 left-0 h-full bg-red-500 rounded" 
-                      style={{ width: `${paymentsDonePercent}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-1">Payments Done %</p>
-                </div>
+          {/* Payments Done % Card */}
+          <div className="bg-white rounded-lg p-4">
+            <div className="flex items-center mb-1">
+              <div className="relative w-full h-2 bg-gray-200 rounded">
+                <div 
+                  className="absolute top-0 left-0 h-full bg-red-500 rounded"
+                  style={{ width: `${analytics.percentages.done}%` }}
+                ></div>
+              </div>
+              <div className="ml-2 text-sm font-medium text-gray-700">
+                {analytics.percentages.done}%
               </div>
             </div>
+            <div className="text-gray-600 text-sm">Payments Done %</div>
           </div>
 
-          <div className="flex-1 bg-white rounded-lg shadow p-4 border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="p-2">
-                  <div className="relative w-full h-2 bg-gray-200 rounded">
-                    <div 
-                      className="absolute top-0 left-0 h-full bg-red-500 rounded" 
-                      style={{ width: `${expectedPaymentsPercent}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-1">Expected Payments</p>
-                </div>
+          {/* Expected Payments Card */}
+          <div className="bg-white rounded-lg p-4">
+            <div className="flex items-center mb-1">
+              <div className="relative w-full h-2 bg-gray-200 rounded">
+                <div 
+                  className="absolute top-0 left-0 h-full bg-red-500 rounded"
+                  style={{ width: `${analytics.percentages.expected}%` }}
+                ></div>
+              </div>
+              <div className="ml-2 text-sm font-medium text-gray-700">
+                {analytics.percentages.expected}%
               </div>
             </div>
+            <div className="text-gray-600 text-sm">Expected Payments</div>
           </div>
         </div>
 
@@ -339,7 +312,7 @@ const ClientPayments = () => {
             className="hidden"
           />
           <button 
-            onClick={handleUploadClick}
+            onClick={() => fileInputRef.current?.click()}
             className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 flex items-center gap-2"
           >
             <Upload size={18} />
@@ -376,7 +349,7 @@ const ClientPayments = () => {
                   <td className="px-6 py-3 text-center">Total</td>
                   <td></td>
                   <td></td>
-                  <td className="px-6 py-3 text-center">{formatNumber(totalAmount)}</td>
+                  <td className="px-6 py-3 text-center">{formatNumber(analytics.paymentsDone.current * 100000)}</td>
                   <td></td>
                   <td></td>
                 </tr>

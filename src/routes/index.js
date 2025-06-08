@@ -6,7 +6,6 @@ const Billing = lazy(() => import("../Pages/Billing.js"));
 const Indent = lazy(() => import("../Pages/Indent.js"));
 const Dashboard = lazy(() => import("../Pages/Dashboard.js"));
 const WOListing = lazy(() => import("../Pages/WOListing.js"));
-const Login = lazy(() => import("../Pages/Login.js"));
 const LabourBill = lazy(() => import("../Pages/LabourBill.js"));
 const LabourPayments = lazy(() => import("../Pages/LabourPayment.js"));
 const ClientPayments = lazy(() => import("../Pages/ClientPayments.js"));

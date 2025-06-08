@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
 const AppContext = createContext();
 
@@ -61,8 +61,8 @@ export const AppProvider = ({ children }) => {
     }
   });
 
-  // Function to aggregate transactions by particulars
-  const aggregateTransactions = (entries) => {
+  // Memoize aggregateTransactions function
+  const aggregateTransactions = useCallback((entries) => {
     const aggregated = entries.reduce((acc, entry) => {
       const key = entry.particulars.toLowerCase();
       
@@ -95,19 +95,16 @@ export const AppProvider = ({ children }) => {
       return acc;
     }, {});
 
-    // Convert to array and sort by last updated date
     return Object.values(aggregated)
       .sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated))
-      .slice(0, 5); // Keep only the 5 most recent unique items
-  };
+      .slice(0, 5);
+  }, []);
 
-  // Function to update daily report data
-  const updateDailyReport = (newEntry) => {
+  // Memoize updateDailyReport function
+  const updateDailyReport = useCallback((newEntry) => {
     setAppData(prevData => {
-      // Create a copy of the current entries
       const updatedEntries = [...prevData.dailyReport.entries];
       
-      // If it's a new entry, add it
       if (newEntry.isNew) {
         const nextNo = (updatedEntries.length + 1).toString().padStart(2, '0');
         updatedEntries.push({
@@ -117,15 +114,11 @@ export const AppProvider = ({ children }) => {
         });
       }
       
-      // Calculate new totals
       const totalAmount = updatedEntries.reduce((sum, entry) => sum + entry.amount, 0);
-      const totalPaid = updatedEntries.reduce((sum, entry) => sum + entry.paid, 0);
       const totalBalance = updatedEntries.reduce((sum, entry) => sum + entry.balance, 0);
       
-      // Get aggregated recent transactions
       const aggregatedTransactions = aggregateTransactions(updatedEntries);
       
-      // Update both daily report and dashboard data
       return {
         ...prevData,
         dailyReport: {
@@ -154,10 +147,10 @@ export const AppProvider = ({ children }) => {
         }
       };
     });
-  };
+  }, [aggregateTransactions]);
 
-  // Function to update dashboard data
-  const updateDashboard = (newData) => {
+  // Memoize updateDashboard function
+  const updateDashboard = useCallback((newData) => {
     setAppData(prevData => ({
       ...prevData,
       dashboard: {
@@ -165,26 +158,31 @@ export const AppProvider = ({ children }) => {
         ...newData
       }
     }));
-  };
-
-  // Initialize aggregated transactions on mount
-  useEffect(() => {
-    const aggregatedTransactions = aggregateTransactions(appData.dailyReport.entries);
-    updateDashboard({
-      recentTransactions: aggregatedTransactions,
-      aggregatedItems: aggregatedTransactions.reduce((acc, item) => {
-        acc[item.particulars.toLowerCase()] = item;
-        return acc;
-      }, {})
-    });
   }, []);
 
+  // Memoize initial data processing
+  useEffect(() => {
+    const aggregatedTransactions = aggregateTransactions(appData.dailyReport.entries);
+    const aggregatedItems = aggregatedTransactions.reduce((acc, item) => {
+      acc[item.particulars.toLowerCase()] = item;
+      return acc;
+    }, {});
+    
+    updateDashboard({
+      recentTransactions: aggregatedTransactions,
+      aggregatedItems
+    });
+  }, [appData.dailyReport.entries, aggregateTransactions]);
+
+  // Memoize context value
+  const contextValue = useMemo(() => ({
+    appData,
+    updateDailyReport,
+    updateDashboard
+  }), [appData, updateDailyReport, updateDashboard]);
+
   return (
-    <AppContext.Provider value={{ 
-      appData, 
-      updateDailyReport, 
-      updateDashboard 
-    }}>
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );
