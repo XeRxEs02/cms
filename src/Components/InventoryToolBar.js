@@ -1,5 +1,7 @@
 import React from "react";
 import { Search } from "lucide-react";
+import { useToast } from "../context/ToastContext";
+
 const InventoryToolBar = (props) => {
   const {
     items,
@@ -10,6 +12,8 @@ const InventoryToolBar = (props) => {
     setSearchTerm,
     handleClear,
   } = props;
+
+  const { showInfo } = useToast();
 
   return (
     <div>
@@ -36,7 +40,10 @@ const InventoryToolBar = (props) => {
         <div className="flex gap-2 sm:gap-4 items-center w-full sm:w-auto justify-end">
           <button
             className="bg-red-500 hover:bg-red-600 text-white text-xs sm:text-sm font-semibold px-3 sm:px-4 py-2 rounded"
-            onClick={() => setShowItemModal(true)} // Show modal on button click
+            onClick={() => {
+              setShowItemModal(true);
+              showInfo("Add Item modal opened. Enter item details to add to inventory.");
+            }}
           >
             Add Item
           </button>

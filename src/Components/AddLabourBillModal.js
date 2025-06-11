@@ -1,67 +1,69 @@
 import React, { useState } from "react";
-import { Formik, Form, Field, ErrorMessage } from "formik";
-import * as Yup from "yup";
+import { useLabour } from "../context/LabourContext";
+import { useToast } from "../context/ToastContext";
 
 const AddLabourBillModal = ({ setShowModal, addLabourBill }) => {
-  const initialValues = {
+  const { calculateDailyAmount } = useLabour();
+  const { showSuccess, showError } = useToast();
+  const [formData, setFormData] = useState({
     date: "",
     barbender: "",
-    headmanson: "",
-    manson: "",
-    mhelper: "",
-    whelper: "",
-    total: "",
-    extrapayment: "",
+    headmanson: 0,
+    manson: 0,
+    mhelper: 0,
+    whelper: 0,
+    amount: 0,
+    extrapayment: 0,
     remarks: "",
-  };
-
-  const validationSchema = Yup.object().shape({
-    date: Yup.date().required("Date is required"),
-    barbender: Yup.string().required("Bar Bender is required"),
-    headmanson: Yup.number()
-      .typeError("Must be a number")
-      .required("Head Manson is required"),
-    manson: Yup.number()
-      .typeError("Must be a number")
-      .required("Manson is required"),
-    mhelper: Yup.number()
-      .typeError("Must be a number")
-      .required("M-Helper is required"),
-    whelper: Yup.number()
-      .typeError("Must be a number")
-      .required("W-Helper is required"),
-    total: Yup.number()
-      .typeError("Must be a number")
-      .required("Total is required"),
-    extrapayment: Yup.number()
-      .typeError("Must be a number")
-      .required("Extra Payment is required"),
-    remarks: Yup.string(),
   });
 
-  const handleSubmit = (values) => {
-    // Convert string values to numbers where needed
-    const processedValues = {
-      ...values,
-      headmanson: parseInt(values.headmanson),
-      manson: parseInt(values.manson),
-      mhelper: parseInt(values.mhelper),
-      whelper: parseInt(values.whelper),
-      total: parseInt(values.total),
-      extrapayment: parseInt(values.extrapayment)
-    };
+  // Calculate totals when staff numbers change
+  const handleStaffChange = (field, value) => {
+    const numValue = parseInt(value) || 0;
+    const updatedData = { ...formData, [field]: numValue };
+
+    // Calculate amount based on rates
+    const calculatedAmount = calculateDailyAmount(
+      updatedData.headmanson,
+      updatedData.manson,
+      updatedData.mhelper,
+      updatedData.whelper
+    );
+
+    setFormData({
+      ...updatedData,
+      amount: calculatedAmount
+    });
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData({ ...formData, [field]: value });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    // Validation
+    if (!formData.date || !formData.barbender) {
+      showError("Please fill in all required fields.");
+      return;
+    }
+
+    if (formData.headmanson === 0 && formData.manson === 0 && formData.mhelper === 0 && formData.whelper === 0) {
+      showError("Please add at least one staff member.");
+      return;
+    }
 
     // Add the new labour bill
-    addLabourBill(processedValues);
+    addLabourBill(formData);
+    showSuccess(`Labour bill added successfully! Total amount: ₹${formData.amount + formData.extrapayment}`);
 
     // Close the modal
     setShowModal(false);
-
-    console.log("Added new labour bill:", processedValues);
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center min-h-screen z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center min-h-screen z-50">
       <div className="bg-white rounded-md w-full max-w-md p-6 mx-4 sm:mx-6 lg:mx-8 overflow-y-auto max-h-[90vh] scrollbar-hide">
         <h2 className="font-semibold text-xl text-black mb-2">
           Add Labour Bill
@@ -69,177 +71,146 @@ const AddLabourBillModal = ({ setShowModal, addLabourBill }) => {
         <p className="text-sm text-gray-600 mb-4">
           Fill in the details to add a new labour bill.
         </p>
-        <Formik
-          initialValues={initialValues}
-          validationSchema={validationSchema}
-          onSubmit={handleSubmit}
-        >
-          {({ handleSubmit }) => (
-            <Form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700">
-                  Bar Bender
-                </label>
-                <Field
-                  as="select"
-                  name="barbender"
-                  className="w-full border border-gray-600 rounded-md p-2 mt-1"
-                >
-                  <option value="">Select</option>
-                  <option value="Column BarBending">Column BarBending</option>
-                  <option value="Beam BarBending">Beam BarBending</option>
-                  <option value="Slab BarBending">Slab BarBending</option>
-                </Field>
-                <ErrorMessage
-                  name="barbender"
-                  component="div"
-                  className="text-red-600 text-xs mt-1"
-                />
-              </div>
-              <div className="flex flex-wrap gap-4">
-                <div className="flex-1 min-w-[150px]">
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    Head Manson
-                  </label>
-                  <Field
-                    name="headmanson"
-                    type="number"
-                    className="w-full border border-gray-300 rounded-md p-2"
-                  />
-                  <ErrorMessage
-                    name="headmanson"
-                    component="div"
-                    className="text-red-600 text-xs mt-1"
-                  />
-                </div>
-                <div className="flex-1 min-w-[150px]">
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    Manson
-                  </label>
-                  <Field
-                    name="manson"
-                    type="number"
-                    className="w-full border border-gray-300 rounded-md p-2"
-                  />
-                  <ErrorMessage
-                    name="manson"
-                    component="div"
-                    className="text-red-600 text-xs mt-1"
-                  />
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-4">
-                <div className="flex-1 min-w-[150px]">
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    M-Helper
-                  </label>
-                  <Field
-                    name="mhelper"
-                    type="number"
-                    className="w-full border border-gray-300 rounded-md p-2"
-                  />
-                  <ErrorMessage
-                    name="mhelper"
-                    component="div"
-                    className="text-red-600 text-xs mt-1"
-                  />
-                </div>
-                <div className="flex-1 min-w-[150px]">
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    W-Helper
-                  </label>
-                  <Field
-                    name="whelper"
-                    type="number"
-                    className="w-full border border-gray-300 rounded-md p-2"
-                  />
-                  <ErrorMessage
-                    name="whelper"
-                    component="div"
-                    className="text-red-600 text-xs mt-1"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Total
-                </label>
-                <Field
-                  name="total"
-                  type="number"
-                  className="w-full border border-gray-300 rounded-md p-2"
-                />
-                <ErrorMessage
-                  name="total"
-                  component="div"
-                  className="text-red-600 text-xs mt-1"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Extra Payment
-                </label>
-                <Field
-                  name="extrapayment"
-                  type="number"
-                  className="w-full border border-gray-300 rounded-md p-2"
-                />
-                <ErrorMessage
-                  name="extrapayment"
-                  component="div"
-                  className="text-red-600 text-xs mt-1"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Date
-                </label>
-                <Field
-                  name="date"
-                  type="date"
-                  className="w-full border border-gray-300 rounded-md p-2"
-                />
-                <ErrorMessage
-                  name="date"
-                  component="div"
-                  className="text-red-600 text-xs mt-1"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Remarks
-                </label>
-                <Field
-                  name="remarks"
-                  type="text"
-                  as="textarea"
-                  rows="2"
-                  className="w-full border border-gray-300 rounded-md p-2"
-                />
-                <ErrorMessage
-                  name="remarks"
-                  component="div"
-                  className="text-red-500 text-xs mt-1"
-                />
-              </div>
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  className="px-4 py-2 rounded-md border border-gray-300 hover:bg-gray-100"
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-md bg-red-500 text-white font-semibold"
-                >
-                  Add Bill
-                </button>
-              </div>
-            </Form>
-          )}
-        </Formik>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700">
+              Work Type *
+            </label>
+            <select
+              value={formData.barbender}
+              onChange={(e) => handleInputChange('barbender', e.target.value)}
+              className="w-full border border-gray-600 rounded-md p-2 mt-1 focus:outline-none focus:ring-2 focus:ring-red-500"
+              required
+            >
+              <option value="">Select Work Type</option>
+              <option value="Column BarBending">Column BarBending</option>
+              <option value="Beam BarBending">Beam BarBending</option>
+              <option value="Slab BarBending">Slab BarBending</option>
+              <option value="Concrete Work">Concrete Work</option>
+              <option value="Masonry Work">Masonry Work</option>
+              <option value="General Construction">General Construction</option>
+            </select>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[150px]">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Head Mason (₹800/day)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.headmanson}
+                onChange={(e) => handleStaffChange('headmanson', e.target.value)}
+                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+            <div className="flex-1 min-w-[150px]">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Mason (₹800/day)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.manson}
+                onChange={(e) => handleStaffChange('manson', e.target.value)}
+                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[150px]">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                M-Helper (₹600/day)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.mhelper}
+                onChange={(e) => handleStaffChange('mhelper', e.target.value)}
+                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+            <div className="flex-1 min-w-[150px]">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                W-Helper (₹400/day)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.whelper}
+                onChange={(e) => handleStaffChange('whelper', e.target.value)}
+                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">
+              Calculated Amount (₹)
+            </label>
+            <input
+              type="number"
+              value={formData.amount}
+              className="w-full border border-gray-300 rounded-md p-2 bg-gray-100"
+              readOnly
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">
+              Extra Payment (₹)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={formData.extrapayment}
+              onChange={(e) => handleInputChange('extrapayment', parseInt(e.target.value) || 0)}
+              className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="Additional payment if any"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">
+              Date *
+            </label>
+            <input
+              type="date"
+              value={formData.date}
+              onChange={(e) => handleInputChange('date', e.target.value)}
+              className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">
+              Remarks
+            </label>
+            <textarea
+              value={formData.remarks}
+              onChange={(e) => handleInputChange('remarks', e.target.value)}
+              className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              placeholder="Additional notes or comments"
+              rows="2"
+            />
+          </div>
+
+          <div className="flex justify-end gap-4 mt-6">
+            <button
+              type="button"
+              onClick={() => setShowModal(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md"
+            >
+              Add Labour Bill
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

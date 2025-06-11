@@ -2,9 +2,46 @@ import React, { useState } from "react";
 import Navbar from "../Components/Navbar";
 import { useLocation } from "react-router-dom";
 import { BadgeInfo, X } from "lucide-react";
+import { useToast } from "../context/ToastContext";
 
 // General Information Modal Component
 const AddGeneralInfoModal = ({ isOpen, onClose, onSave }) => {
+  const { showSuccess, showError, showInfo } = useToast();
+
+  // Predefined clients with their associated information
+  const predefinedClients = {
+    "Mr. Narendra Kori": {
+      projectNo: "#MC02",
+      labourContractor: "Thippanna B",
+      address: "Mahendra Enclave",
+      totalBudget: "10,00,000"
+    },
+    "Mrs. Priya Sharma": {
+      projectNo: "#PS03",
+      labourContractor: "Rajesh Kumar",
+      address: "Green Valley Apartments",
+      totalBudget: "15,00,000"
+    },
+    "Mr. Amit Patel": {
+      projectNo: "#AP04",
+      labourContractor: "Suresh Reddy",
+      address: "Sunrise Residency",
+      totalBudget: "12,50,000"
+    },
+    "Dr. Kavitha Rao": {
+      projectNo: "#KR05",
+      labourContractor: "Venkatesh Naidu",
+      address: "Medical Complex Plaza",
+      totalBudget: "20,00,000"
+    },
+    "Mr. Ravi Kumar": {
+      projectNo: "#RK06",
+      labourContractor: "Mohan Singh",
+      address: "Tech Park Avenue",
+      totalBudget: "18,75,000"
+    }
+  };
+
   const [formData, setFormData] = useState({
     clientName: "",
     projectNo: "",
@@ -13,14 +50,55 @@ const AddGeneralInfoModal = ({ isOpen, onClose, onSave }) => {
     totalBudget: ""
   });
 
-  const handleChange = (e) => {
+  const handleClientChange = (e) => {
+    const selectedClient = e.target.value;
+    const clientData = predefinedClients[selectedClient];
+
+    if (clientData) {
+      setFormData({
+        clientName: selectedClient,
+        projectNo: clientData.projectNo,
+        labourContractor: clientData.labourContractor,
+        address: clientData.address,
+        totalBudget: clientData.totalBudget
+      });
+
+      showInfo(`Client details for "${selectedClient}" auto-filled successfully!`);
+    } else {
+      setFormData({
+        clientName: selectedClient,
+        projectNo: "",
+        labourContractor: "",
+        address: "",
+        totalBudget: ""
+      });
+    }
+  };
+
+  const handleFieldChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (!formData.clientName || !formData.projectNo || !formData.labourContractor || !formData.address || !formData.totalBudget) {
+      showError("Please fill in all required fields.");
+      return;
+    }
+
     onSave(formData);
+    showSuccess(`General information for "${formData.clientName}" saved successfully!`);
+
+    // Reset form
+    setFormData({
+      clientName: "",
+      projectNo: "",
+      labourContractor: "",
+      address: "",
+      totalBudget: ""
+    });
     onClose();
   };
 
@@ -40,70 +118,80 @@ const AddGeneralInfoModal = ({ isOpen, onClose, onSave }) => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Name of Client
+                Name of Client *
               </label>
-              <input
-                type="text"
+              <select
                 name="clientName"
                 value={formData.clientName}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2"
+                onChange={handleClientChange}
+                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
                 required
-              />
+              >
+                <option value="">Select a client</option>
+                {Object.keys(predefinedClients).map((client) => (
+                  <option key={client} value={client}>
+                    {client}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Project No.
+                Project No. *
               </label>
               <input
                 type="text"
                 name="projectNo"
                 value={formData.projectNo}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2"
+                onChange={handleFieldChange}
+                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="Project number will be auto-filled when client is selected"
                 required
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Labour Contractor
+                Labour Contractor *
               </label>
               <input
                 type="text"
                 name="labourContractor"
                 value={formData.labourContractor}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2"
+                onChange={handleFieldChange}
+                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="Labour contractor will be auto-filled when client is selected"
                 required
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Address
+                Address *
               </label>
               <input
                 type="text"
                 name="address"
                 value={formData.address}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2"
+                onChange={handleFieldChange}
+                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="Address will be auto-filled when client is selected"
                 required
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Total Budget
+                Total Budget (₹) *
               </label>
               <input
                 type="text"
                 name="totalBudget"
                 value={formData.totalBudget}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2"
+                onChange={handleFieldChange}
+                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="Budget will be auto-filled when client is selected"
                 required
               />
             </div>
@@ -132,19 +220,52 @@ const AddGeneralInfoModal = ({ isOpen, onClose, onSave }) => {
 
 // Rate List Modal Component
 const AddRateListModal = ({ isOpen, onClose, onSave }) => {
+  const { showSuccess, showError, showInfo } = useToast();
+
+  // Predefined roles with their rates
+  const predefinedRoles = {
+    "Head Mason": "800",
+    "Mason": "800",
+    "M - Helper": "600",
+    "W - Helper": "400"
+  };
+
   const [formData, setFormData] = useState({
     role: "",
     rate: ""
   });
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+  const handleRoleChange = (e) => {
+    const selectedRole = e.target.value;
+    const autoRate = predefinedRoles[selectedRole] || "";
+
+    setFormData({
+      role: selectedRole,
+      rate: autoRate
+    });
+
+    if (selectedRole && autoRate) {
+      showInfo(`Rate automatically set to ₹${autoRate} for ${selectedRole}`);
+    }
+  };
+
+  const handleRateChange = (e) => {
+    setFormData({ ...formData, rate: e.target.value });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (!formData.role || !formData.rate) {
+      showError("Please select a role and enter a rate.");
+      return;
+    }
+
     onSave(formData);
+    showSuccess(`Rate for ${formData.role} added successfully!`);
+
+    // Reset form
+    setFormData({ role: "", rate: "" });
     onClose();
   };
 
@@ -164,28 +285,35 @@ const AddRateListModal = ({ isOpen, onClose, onSave }) => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Role
+                Role *
               </label>
-              <input
-                type="text"
+              <select
                 name="role"
                 value={formData.role}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2"
+                onChange={handleRoleChange}
+                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
                 required
-              />
+              >
+                <option value="">Select a role</option>
+                {Object.keys(predefinedRoles).map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Rate
+                Rate (₹) *
               </label>
               <input
-                type="text"
+                type="number"
                 name="rate"
                 value={formData.rate}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md p-2"
+                onChange={handleRateChange}
+                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="Rate will be auto-filled when role is selected"
                 required
               />
             </div>
@@ -214,6 +342,7 @@ const AddRateListModal = ({ isOpen, onClose, onSave }) => {
 
 const Indent = () => {
   const location = useLocation();
+  const { showInfo, showSuccess } = useToast();
 
   // State for general information
   const [generalInfo, setGeneralInfo] = useState([
@@ -224,13 +353,12 @@ const Indent = () => {
     ["Total Budget", "10,00,000"],
   ]);
 
-  // State for rate list
+  // State for rate list - only the 4 predefined roles
   const [rateList, setRateList] = useState([
     ["Head Mason", "800"],
     ["Mason", "800"],
     ["M - Helper", "600"],
     ["W - Helper", "400"],
-    ["Column bartending", "13,200"],
   ]);
 
   // State for modals
@@ -247,12 +375,26 @@ const Indent = () => {
       ["Total Budget", data.totalBudget],
     ];
     setGeneralInfo(newGeneralInfo);
+    showSuccess(`General information updated successfully for ${data.clientName}!`);
   };
 
   // Function to handle saving rate list item
   const handleSaveRateList = (data) => {
-    const newRateList = [...rateList, [data.role, data.rate]];
-    setRateList(newRateList);
+    // Check if role already exists
+    const existingRoleIndex = rateList.findIndex(item => item[0] === data.role);
+
+    if (existingRoleIndex !== -1) {
+      // Update existing role rate
+      const updatedRateList = [...rateList];
+      updatedRateList[existingRoleIndex] = [data.role, data.rate];
+      setRateList(updatedRateList);
+      showSuccess(`Rate for ${data.role} updated to ₹${data.rate}`);
+    } else {
+      // Add new role (though this shouldn't happen with predefined roles)
+      const newRateList = [...rateList, [data.role, data.rate]];
+      setRateList(newRateList);
+      showSuccess(`Rate for ${data.role} added successfully!`);
+    }
   };
 
   return (
@@ -269,7 +411,10 @@ const Indent = () => {
               <button
                 className="bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded"
                 type="button"
-                onClick={() => setIsGeneralInfoModalOpen(true)}
+                onClick={() => {
+                  setIsGeneralInfoModalOpen(true);
+                  showInfo("Add General Info modal opened. Enter project details.");
+                }}
               >
                 Add General Information
               </button>
@@ -297,7 +442,10 @@ const Indent = () => {
               <button
                 className="bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded"
                 type="button"
-                onClick={() => setIsRateListModalOpen(true)}
+                onClick={() => {
+                  setIsRateListModalOpen(true);
+                  showInfo("Add Rate List modal opened. Select a role to set rates.");
+                }}
               >
                 Add Rate List
               </button>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaArrowLeft } from "react-icons/fa";
 import { HiOutlineBriefcase } from "react-icons/hi";
+import { LogOut } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useProject } from "../context/ProjectContext";
 import { useAuth } from "../context/AuthContext";
@@ -10,8 +11,22 @@ const Navbar = ({ currentPath, icon: Icon }) => {
   const location = useLocation();
   const path = currentPath.split("/");
   const { selectedProject } = useProject();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  // Function to get greeting based on time of day
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   // Handle responsive behavior
   useEffect(() => {
@@ -76,17 +91,24 @@ const Navbar = ({ currentPath, icon: Icon }) => {
           )}
         </div>
 
-        {/* User info on navbar for larger screens */}
-        {!isMobile && user && (
-          <div className="hidden md:flex items-center gap-2">
-            <div className="w-8 h-8 bg-red-600 text-white flex items-center justify-center rounded-full">
-              {user.name ? user.name.charAt(0) : 'U'}
-            </div>
-            <span className="text-sm font-medium text-gray-700">
-              {user.name || 'User'}
-            </span>
-          </div>
-        )}
+        {/* Greeting - only show logout on projects page */}
+        <div className="flex items-center gap-4">
+          {user && location.pathname === '/app/projects' && (
+            <>
+              <div className="text-sm font-medium text-gray-700">
+                {getGreeting()} {user.name || 'User'}!
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors text-sm"
+                aria-label="Logout"
+              >
+                <LogOut size={16} />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            </>
+          )}
+        </div>
       </div>
       <div className="flex-grow border-b border-gray-300 mr-3"></div>
     </div>

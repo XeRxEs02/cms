@@ -17,29 +17,24 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Check authentication on page load/refresh
     const checkAuth = () => {
-      // For persistent login, remove the next line
-      // localStorage.removeItem('isAuthenticated');
-      const loggedIn = localStorage.getItem('isAuthenticated') === 'true';
-
-      if (loggedIn) {
-        // Try to get user data
+      try {
+        const authState = localStorage.getItem('isAuthenticated');
         const userData = localStorage.getItem('userData');
-        if (userData) {
-          try {
-            setUser(JSON.parse(userData));
-          } catch (error) {
-            console.error('Error parsing user data:', error);
-            // Set default user if parsing fails
-            setUser({ name: 'Abhishek U', email: 'admin@sbpatil.com' });
-          }
-        } else {
-          // Set default user if no data exists
-          setUser({ name: 'Abhishek U', email: 'admin@sbpatil.com' });
-        }
-      }
 
-      setIsAuthenticated(loggedIn);
-      setIsLoading(false);
+        if (authState === 'true' && userData) {
+          setIsAuthenticated(true);
+          setUser(JSON.parse(userData));
+        } else {
+          setIsAuthenticated(false);
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Error checking authentication:', error);
+        setIsAuthenticated(false);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     checkAuth();
@@ -72,6 +67,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('userData');
+    localStorage.removeItem('selectedProject');
     setUser(null);
     setIsAuthenticated(false);
   };
