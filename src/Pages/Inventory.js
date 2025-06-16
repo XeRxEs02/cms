@@ -9,6 +9,10 @@ import {
   AlertCircle,
   Package,
   Download,
+  Edit2,
+  Plus,
+  X,
+  XCircle,
 } from "lucide-react";
 import { useAppContext } from '../context/AppContext';
 import * as XLSX from 'xlsx';
@@ -16,8 +20,8 @@ import { useToast } from "../context/ToastContext";
 
 const Inventory = () => {
   const location = useLocation();
-  const { appData } = useAppContext();
-  const { showSuccess, showInfo } = useToast();
+  const { appData, updateDailyReport } = useAppContext();
+  const { showSuccess, showInfo, showError } = useToast();
 
   // State for active tab
   const [activeTab, setActiveTab] = useState("Material Flow");
@@ -25,6 +29,42 @@ const Inventory = () => {
   // State for item details modal
   const [showItemDetailsModal, setShowItemDetailsModal] = useState(false);
   const [selectedItemDetails, setSelectedItemDetails] = useState(null);
+
+  // State for update modal
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [selectedItemForUpdate, setSelectedItemForUpdate] = useState(null);
+
+  // State for add particular modal
+  const [showAddParticularModal, setShowAddParticularModal] = useState(false);
+
+  // Function to generate next DR number
+  const getNextDRNumber = () => {
+    // Get all existing DR numbers
+    const existingDRs = appData.dailyReport.entries
+      .map(entry => entry.drNo)
+      .filter(drNo => drNo && drNo.startsWith('DR'))
+      .map(drNo => {
+        const num = parseInt(drNo.replace('DR', ''));
+        return isNaN(num) ? 0 : num;
+      });
+
+    // Find the highest number
+    const maxDR = Math.max(0, ...existingDRs);
+    
+    // Generate next number, zero-padded to 3 digits
+    return `DR${(maxDR + 1).toString().padStart(3, '0')}`;
+  };
+
+  // Modify the newParticular state to include auto-generated DR number
+  const [newParticular, setNewParticular] = useState({
+    drNo: getNextDRNumber(),
+    particulars: "",
+    date: new Date().toISOString().split('T')[0],
+    amount: "",
+    paid: "",
+    balance: "",
+    remarks: ""
+  });
 
   // Memoize expensive calculations
   const { transactions, totalAmount, totalPaid, totalBalance, paymentPercentage, balancePercentage } = useMemo(() => {
@@ -255,6 +295,100 @@ const Inventory = () => {
     }
   };
 
+  // Add function to handle update button click
+  const handleUpdateClick = (item) => {
+    setSelectedItemForUpdate(item);
+    setShowUpdateModal(true);
+  };
+
+  // Add function to handle update submission
+  const handleUpdateSubmit = async (updatedData) => {
+    try {
+      // Update the item in the appData context
+      const updatedEntries = appData.dailyReport.entries.map(entry => {
+        if (entry.particulars === selectedItemForUpdate.particulars) {
+          return { ...entry, ...updatedData };
+        }
+        return entry;
+      });
+
+      // Update the context with new data
+      await updateDailyReport({
+        ...updatedData,
+        isNew: false,
+        entries: updatedEntries
+      });
+
+      showSuccess("Item updated successfully");
+      setShowUpdateModal(false);
+      setSelectedItemForUpdate(null);
+    } catch (error) {
+      console.error('Error updating item:', error);
+      showError("Failed to update item");
+    }
+  };
+
+  // Add function to handle adding new particular
+  const handleAddParticular = async (formData) => {
+    try {
+      // Validate required fields
+      if (!formData.particulars || !formData.date || !formData.amount) {
+        showError("Please fill in all required fields (Particulars, Date, and Amount)");
+        return;
+      }
+
+      // Validate numeric fields
+      const amount = parseFloat(formData.amount);
+      const paid = parseFloat(formData.paid) || 0;
+      
+      if (isNaN(amount) || amount <= 0) {
+        showError("Amount must be a positive number");
+        return;
+      }
+
+      if (isNaN(paid) || paid < 0) {
+        showError("Paid amount must be a non-negative number");
+        return;
+      }
+
+      if (paid > amount) {
+        showError("Paid amount cannot be greater than the total amount");
+        return;
+      }
+
+      // Calculate balance
+      const balance = amount - paid;
+
+      // Create a new entry in the daily report
+      const newEntry = {
+        ...formData,
+        amount,
+        paid,
+        balance,
+        drNo: formData.drNo || getNextDRNumber(),
+        isNew: true
+      };
+
+      // Update the context with new data
+      await updateDailyReport(newEntry);
+
+      showSuccess("New particular added successfully");
+      setShowAddParticularModal(false);
+      setNewParticular({
+        drNo: getNextDRNumber(),
+        particulars: "",
+        date: new Date().toISOString().split('T')[0],
+        amount: "",
+        paid: "",
+        balance: "",
+        remarks: ""
+      });
+    } catch (error) {
+      console.error('Error adding particular:', error);
+      showError(error.message || "Failed to add particular. Please try again.");
+    }
+  };
+
   return (
     <>
       <Navbar currentPath={location.pathname} icon={Package} />
@@ -273,14 +407,14 @@ const Inventory = () => {
               Material Flow
             </button>
             <button
-              onClick={() => setActiveTab("Recent Transactions")}
+              onClick={() => setActiveTab("Inventory List")}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === "Recent Transactions"
+                activeTab === "Inventory List"
                   ? "border-[#7BAFD4] text-[#7BAFD4]"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
-              Recent Transactions
+              Inventory List
             </button>
           </div>
         </div>
@@ -458,13 +592,22 @@ const Inventory = () => {
         </div>
         )}
 
-        {/* Recent Transactions Tab */}
-        {activeTab === "Recent Transactions" && (
+        {/* Inventory List Tab */}
+        {activeTab === "Inventory List" && (
           <div className="p-3 sm:p-4 md:p-6">
             <div className="bg-white rounded-lg shadow-md border border-gray-200">
-              <div className="px-4 py-3 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Recent Transactions</h3>
-                <p className="text-sm text-gray-600">Latest inventory transactions grouped by particulars</p>
+              <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Inventory List</h3>
+                  <p className="text-sm text-gray-600">Latest inventory transactions grouped by particulars</p>
+                </div>
+                <button
+                  onClick={() => setShowAddParticularModal(true)}
+                  className="bg-[#7BAFD4] hover:bg-[#6B9FD4] text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
+                >
+                  <Plus size={20} />
+                  <span>Add Particular</span>
+                </button>
               </div>
 
               <div className="overflow-x-auto">
@@ -478,6 +621,7 @@ const Inventory = () => {
                       <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Total Paid</th>
                       <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Balance</th>
                       <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Status</th>
+                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -513,6 +657,17 @@ const Inventory = () => {
                             {item.balance === 0 ? 'Paid' : item.paid > 0 ? 'Partial' : 'Pending'}
                           </span>
                         </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleUpdateClick(item)}
+                              className="p-1 text-[#7BAFD4] hover:text-[#6B9FD4] rounded-md hover:bg-blue-50 transition-colors"
+                              title="Update item"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -540,6 +695,150 @@ const Inventory = () => {
         onClose={() => setShowItemDetailsModal(false)}
         itemDetails={selectedItemDetails}
       />
+
+      {/* Update Item Modal */}
+      <ItemDetailsModal
+        isOpen={showUpdateModal}
+        onClose={() => {
+          setShowUpdateModal(false);
+          setSelectedItemForUpdate(null);
+        }}
+        itemDetails={selectedItemForUpdate}
+        isUpdate={true}
+        onSubmit={handleUpdateSubmit}
+      />
+
+      {/* Add Particular Modal */}
+      <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${showAddParticularModal ? '' : 'hidden'}`}>
+        <div className="bg-white rounded-lg w-full max-w-2xl p-6">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-xl font-semibold text-[#2C3E50]">Add New Particular</h2>
+              <p className="text-sm text-gray-600">Enter the details for the new particular</p>
+            </div>
+            <button
+              onClick={() => setShowAddParticularModal(false)}
+              className="p-2 text-[#7C8CA1] hover:text-[#2C3E50] hover:bg-gray-50 rounded-md transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            handleAddParticular(newParticular);
+          }} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  DR. No
+                  <span className="text-xs text-gray-500 ml-1">(Auto-generated)</span>
+                </label>
+                <input
+                  type="text"
+                  value={newParticular.drNo}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Particulars</label>
+                <input
+                  type="text"
+                  value={newParticular.particulars}
+                  onChange={(e) => setNewParticular({ ...newParticular, particulars: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#7BAFD4]"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={newParticular.date}
+                  onChange={(e) => setNewParticular({ ...newParticular, date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#7BAFD4]"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                <input
+                  type="number"
+                  value={newParticular.amount}
+                  onChange={(e) => {
+                    const amount = e.target.value;
+                    const paid = parseFloat(newParticular.paid) || 0;
+                    setNewParticular({
+                      ...newParticular,
+                      amount,
+                      balance: (parseFloat(amount) - paid).toString()
+                    });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#7BAFD4]"
+                  required
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Paid</label>
+                <input
+                  type="number"
+                  value={newParticular.paid}
+                  onChange={(e) => {
+                    const paid = e.target.value;
+                    const amount = parseFloat(newParticular.amount) || 0;
+                    setNewParticular({
+                      ...newParticular,
+                      paid,
+                      balance: (amount - parseFloat(paid)).toString()
+                    });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#7BAFD4]"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Balance</label>
+                <input
+                  type="number"
+                  value={newParticular.balance}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+              <textarea
+                value={newParticular.remarks}
+                onChange={(e) => setNewParticular({ ...newParticular, remarks: e.target.value })}
+                rows="3"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#7BAFD4]"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAddParticularModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md flex items-center gap-2"
+              >
+                <XCircle size={16} />
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 text-sm font-medium text-white bg-[#7BAFD4] hover:bg-[#6B9FD4] rounded-md flex items-center gap-2"
+              >
+                <Plus size={16} />
+                Add Particular
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </>
   );
 };

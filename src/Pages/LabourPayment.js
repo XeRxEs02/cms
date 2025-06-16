@@ -1,11 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import Navbar from "../Components/Navbar";
 import { useLocation } from "react-router-dom";
-import { Coins, Calendar, Users, CheckCircle, Info, Copy, Trash2, Download } from "lucide-react";
+import { Coins, Calendar, Users, CheckCircle, Info, Copy, Trash2, Download, Edit2, AlertCircle, X } from "lucide-react";
 import { useLabour } from "../context/LabourContext";
 import { useToast } from "../context/ToastContext";
 import WeekDetailsModal from "../Components/WeekDetailsModal";
 import * as XLSX from 'xlsx';
+import { toast } from 'react-toastify';
+import DeleteVerificationDialog from "../Components/DeleteVerificationDialog";
 
 const LabourPayment = () => {
   const location = useLocation();
@@ -15,41 +17,46 @@ const LabourPayment = () => {
     completeWeek,
     isWeekComplete,
     labourPaymentData,
-    addDailyEntryToLabourBill
+    hasDayEntry
   } = useLabour();
   const { showSuccess, showInfo, showError } = useToast();
 
-  const [selectedDay, setSelectedDay] = useState('Monday');
+  // Reorder days to start from Monday
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  
+  const [selectedDay, setSelectedDay] = useState(days[0]);
   const [selectedWeek, setSelectedWeek] = useState(null);
   const [showConfirmClear, setShowConfirmClear] = useState(false);
+  const [showZeroStaffModal, setShowZeroStaffModal] = useState(false);
+  const [showEditConfirm, setShowEditConfirm] = useState(false);
+  const [showWeekProgress, setShowWeekProgress] = useState(false);
+  const [showWeekDetails, setShowWeekDetails] = useState(false);
   const [dayFormData, setDayFormData] = useState({
     headMason: 0,
     mason: 0,
     mHelper: 0,
     wHelper: 0,
-    workType: '',
-    remarks: ''
+    miscAmount: 0,
+    remarks: '',
+    isSaved: false
   });
 
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  // Toast notifications
+  const showSuccessToast = (message) => toast.success(message);
+  const showInfoToast = (message) => toast.info(message);
+  const showWarningToast = (message) => toast.warning(message);
 
   // Load data for selected day
   const loadDayData = (day) => {
     const dayData = currentWeekData.dailyData[day];
-    setDayFormData({
-      headMason: dayData.headMason,
-      mason: dayData.mason,
-      mHelper: dayData.mHelper,
-      wHelper: dayData.wHelper,
-      workType: dayData.workType,
-      remarks: dayData.remarks
-    });
+    setDayFormData(dayData);
   };
 
   // Handle day selection
   const handleDaySelect = (day) => {
-    if (showConfirmClear) {
-      setShowConfirmClear(false);
+    const dayData = currentWeekData.dailyData[day];
+    if (dayData.isSaved) {
+      setShowEditConfirm(true);
     }
     setSelectedDay(day);
     loadDayData(day);
@@ -78,12 +85,13 @@ const LabourPayment = () => {
       mason: 0,
       mHelper: 0,
       wHelper: 0,
-      workType: '',
-      remarks: ''
+      miscAmount: 0,
+      remarks: '',
+      isSaved: false
     };
     setDayFormData(emptyData);
     updateDailyData(selectedDay, emptyData);
-    showInfo(`${selectedDay}'s data has been cleared.`);
+    showInfoToast(`${selectedDay}'s data has been cleared.`);
     setShowConfirmClear(false);
   };
 
@@ -100,37 +108,71 @@ const LabourPayment = () => {
           mason: previousData.mason,
           mHelper: previousData.mHelper,
           wHelper: previousData.wHelper,
-          workType: previousData.workType,
+          miscAmount: previousData.miscAmount,
           remarks: `Copied from ${previousDay}`
         });
-        showInfo(`Data copied from ${previousDay}.`);
+        showInfoToast(`Data copied from ${previousDay}.`);
       } else {
-        showError(`No data available from ${previousDay} to copy.`);
+        showError("This is the first day of the week. Nothing to copy from.");
       }
     } else {
       showError("This is the first day of the week. Nothing to copy from.");
     }
   };
 
+  // Calculate daily amount
+  const calculateDailyAmount = (headMason, mason, mHelper, wHelper, miscAmount = 0) => {
+    const rates = {
+      headMason: 800,
+      mason: 800,
+      mHelper: 600,
+      wHelper: 600
+    };
+
+    return (
+      headMason * rates.headMason +
+      mason * rates.mason +
+      mHelper * rates.mHelper +
+      wHelper * rates.wHelper +
+      (parseInt(miscAmount) || 0)
+    );
+  };
+
   // Save daily data
   const saveDayData = () => {
-    if (!dayFormData.workType) {
-      showError("Please select a work type before saving.");
+    const totalStaff = dayFormData.headMason + dayFormData.mason + dayFormData.mHelper + dayFormData.wHelper;
+    
+    if (totalStaff === 0 && !dayFormData.miscAmount) {
+      setShowZeroStaffModal(true);
       return;
     }
 
-    if (dayFormData.headMason === 0 && dayFormData.mason === 0 && dayFormData.mHelper === 0 && dayFormData.wHelper === 0) {
-      showError("Please add at least one staff member.");
-      return;
-    }
+    proceedWithSave(totalStaff);
+  };
 
-    // Update the weekly tracking data
-    updateDailyData(selectedDay, dayFormData);
+  // Proceed with saving data
+  const proceedWithSave = (totalStaff) => {
+    const updatedDayData = { 
+      ...dayFormData, 
+      isSaved: true 
+    };
+    updateDailyData(selectedDay, updatedDayData);
+    showSuccess(`${selectedDay}'s data saved successfully`);
+    
+    // Calculate total amount for the day
+    const dayAmount = calculateDailyAmount(
+      dayFormData.headMason,
+      dayFormData.mason,
+      dayFormData.mHelper,
+      dayFormData.wHelper,
+      dayFormData.miscAmount
+    );
+    
+    // Show detailed toast
+    showInfo(`Day Total: ₹${dayAmount} | Staff: ${totalStaff} | Misc: ₹${dayFormData.miscAmount || 0}`);
 
-    // Add entry directly to Labour Bill
-    const labourEntry = addDailyEntryToLabourBill(selectedDay, dayFormData);
-
-    showSuccess(`${selectedDay} data saved to Labour Bill! Entry ID: ${Math.floor(labourEntry.id)} | Amount: ₹${labourEntry.amount}`);
+    setShowZeroStaffModal(false);
+    setShowEditConfirm(false);
 
     // Auto-select next day if available
     const currentDayIndex = days.indexOf(selectedDay);
@@ -140,27 +182,20 @@ const LabourPayment = () => {
     }
   };
 
-  // Complete the week
-  const handleCompleteWeek = () => {
-    if (!isWeekComplete()) {
-      showError("Please fill data for all days (Monday to Saturday) before completing the week.");
-      return;
-    }
-
-    const weekNumber = currentWeekData.weekNumber;
-    const totalAmount = currentWeekData.totalAmount;
-
+  // Handle week completion
+  const handleWeekComplete = () => {
+    const totalDays = Object.values(currentWeekData.dailyData).filter(day => day.isSaved).length;
+    const weekTotal = currentWeekData.totalAmount;
+    
     completeWeek();
-    showSuccess(`Week ${weekNumber} completed and moved to Labour Payment! Total: ₹${totalAmount}. Daily entries remain in Labour Bill.`);
-
-    // Reset form for new week
-    setSelectedDay('Monday');
-    loadDayData('Monday');
+    showSuccess(`Week completed successfully!`);
+    showInfo(`Total Days: ${totalDays} | Week Total: ₹${weekTotal}`);
   };
 
   // Show week details
   const handleShowWeekDetails = (week) => {
     setSelectedWeek(week);
+    setShowWeekDetails(true);
   };
 
   // Handle export to Excel
@@ -198,12 +233,166 @@ const LabourPayment = () => {
 
       // Generate Excel file
       XLSX.writeFile(wb, 'labour_payments.xlsx');
-      showSuccess('Labour payment data exported successfully!');
+      showSuccessToast('Labour payment data exported successfully!');
     } catch (error) {
-      showInfo('Error exporting data to Excel. Please try again.');
+      showInfoToast('Error exporting data to Excel. Please try again.');
       console.error('Export error:', error);
     }
   };
+
+  // Modal Components
+  const ZeroStaffModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <AlertCircle className="text-yellow-500" />
+          Confirm Zero Staff Entry
+        </h3>
+        <p className="text-gray-600 mb-4">
+          You are about to save an entry with zero staff. Total amount: ₹{dayFormData.miscAmount}
+        </p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={() => setShowZeroStaffModal(false)}
+            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
+          >
+            Fill Details
+          </button>
+          <button
+            onClick={proceedWithSave}
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          >
+            OK, Proceed
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Handle edit from week details
+  const handleEditFromWeekDetails = (day) => {
+    setSelectedDay(day);
+    setDayFormData(currentWeekData.dailyData[day]);
+    setShowEditConfirm(true);
+  };
+
+  // Week Details Modal
+  const handleWeekDetailsEdit = () => {
+    setShowWeekDetails(false);
+    showInfo("Select the day you want to edit");
+  };
+
+  // Week Progress Info Modal
+  const WeekProgressModal = ({ onClose, onEdit }) => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Week Progress Details</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="space-y-4">
+          {days.map(day => {
+            const dayData = currentWeekData.dailyData[day];
+            const totalStaff = dayData.headMason + dayData.mason + dayData.mHelper + dayData.wHelper;
+            
+            return (
+              <div key={day} className="border-b pb-3">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-medium">{day}</span>
+                  <span className={`px-2 py-1 rounded-full text-xs ${dayData.isSaved ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                    {dayData.isSaved ? 'Saved' : 'Pending'}
+                  </span>
+                </div>
+                {dayData.isSaved && (
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p>Total Staff: {totalStaff}</p>
+                      <p>Head Mason: {dayData.headMason}</p>
+                      <p>Mason: {dayData.mason}</p>
+                      <p>Male Helper: {dayData.mHelper}</p>
+                      <p>Female Helper: {dayData.wHelper}</p>
+                    </div>
+                    <div>
+                      <p>Misc Amount: ₹{dayData.miscAmount || 0}</p>
+                      <p>Total Amount: ₹{dayData.amount}</p>
+                      {dayData.remarks && (
+                        <p className="text-gray-600 mt-1">
+                          Remarks: {dayData.remarks}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        
+        <div className="mt-6 flex justify-between items-center">
+          <div>
+            <p className="text-lg font-semibold">Week Total: ₹{currentWeekData.totalAmount}</p>
+            <p className="text-sm text-gray-600">
+              {Object.values(currentWeekData.dailyData).filter(day => day.isSaved).length}/7 Days Completed
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onEdit}
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center gap-2"
+            >
+              <Edit2 className="w-4 h-4" />
+              Edit Week
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Stats Grid Component
+  const StatsGrid = () => (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+      <div className="bg-blue-50 p-4 rounded-lg">
+        <p className="text-blue-600 text-sm font-medium">Days Completed</p>
+        <p className="text-2xl font-bold text-blue-800">
+          {Object.values(currentWeekData.dailyData).filter(day => day.isSaved).length}/7
+        </p>
+      </div>
+      <div className="bg-green-50 p-4 rounded-lg relative group cursor-pointer"
+        onClick={() => setShowWeekProgress(true)}
+      >
+        <div className="absolute top-2 right-2">
+          <Info className="w-5 h-5 text-green-600" />
+        </div>
+        <p className="text-green-600 text-sm font-medium">Week Total</p>
+        <p className="text-2xl font-bold text-green-800">₹{currentWeekData.totalAmount}</p>
+      </div>
+      <div className="bg-purple-50 p-4 rounded-lg">
+        <p className="text-purple-600 text-sm font-medium">Avg Daily</p>
+        <p className="text-2xl font-bold text-purple-800">
+          ₹{currentWeekData.totalAmount > 0
+            ? Math.round(currentWeekData.totalAmount / Object.values(currentWeekData.dailyData)
+                .filter(day => day.isSaved).length)
+            : 0}
+        </p>
+      </div>
+      <div className="bg-orange-50 p-4 rounded-lg">
+        <p className="text-orange-600 text-sm font-medium">Status</p>
+        <p className="text-lg font-bold text-orange-800">
+          {isWeekComplete() ? 'Ready' : 'In Progress'}
+        </p>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -229,7 +418,6 @@ const LabourPayment = () => {
                   <tr>
                     <th className="px-4 py-3 text-left">Week</th>
                     <th className="px-4 py-3 text-left">Period</th>
-                    <th className="px-4 py-3 text-center">Days Worked</th>
                     <th className="px-4 py-3 text-right">Total Amount</th>
                     <th className="px-4 py-3 text-center">Details</th>
                   </tr>
@@ -241,7 +429,6 @@ const LabourPayment = () => {
                       <td className="px-4 py-3">
                         {week.startDate} to {week.endDate}
                       </td>
-                      <td className="px-4 py-3 text-center">{week.totalDays}</td>
                       <td className="px-4 py-3 text-right font-medium">₹{week.totalAmount}</td>
                       <td className="px-4 py-3 text-center">
                         <button
@@ -269,7 +456,7 @@ const LabourPayment = () => {
             </h2>
             {isWeekComplete() && (
               <button
-                onClick={handleCompleteWeek}
+                onClick={handleWeekComplete}
                 className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md font-semibold flex items-center gap-2"
               >
                 <CheckCircle className="w-4 h-4" />
@@ -279,44 +466,15 @@ const LabourPayment = () => {
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-blue-600 text-sm font-medium">Days Completed</p>
-              <p className="text-2xl font-bold text-blue-800">
-                {Object.values(currentWeekData.dailyData).filter(day =>
-                  day.headMason > 0 || day.mason > 0 || day.mHelper > 0 || day.wHelper > 0
-                ).length}/6
-              </p>
-            </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <p className="text-green-600 text-sm font-medium">Week Total</p>
-              <p className="text-2xl font-bold text-green-800">₹{currentWeekData.totalAmount}</p>
-            </div>
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <p className="text-purple-600 text-sm font-medium">Avg Daily</p>
-              <p className="text-2xl font-bold text-purple-800">
-                ₹{currentWeekData.totalAmount > 0
-                  ? Math.round(currentWeekData.totalAmount / Object.values(currentWeekData.dailyData)
-                      .filter(day => day.amount > 0).length)
-                  : 0}
-              </p>
-            </div>
-            <div className="bg-orange-50 p-4 rounded-lg">
-              <p className="text-orange-600 text-sm font-medium">Status</p>
-              <p className="text-lg font-bold text-orange-800">
-                {isWeekComplete() ? 'Ready' : 'In Progress'}
-              </p>
-            </div>
-          </div>
+          <StatsGrid />
 
           {/* Week Progress Bar */}
-          <div className="grid grid-cols-6 gap-2">
+          <div className="grid grid-cols-7 gap-2">
             {days.map(day => {
               const dayData = currentWeekData.dailyData[day];
-              const isCompleted = dayData.headMason > 0 || dayData.mason > 0 || dayData.mHelper > 0 || dayData.wHelper > 0;
               return (
                 <div key={day} className="text-center">
-                  <div className={`h-2 rounded-full mb-1 ${isCompleted ? 'bg-green-500' : 'bg-gray-200'}`} />
+                  <div className={`h-2 rounded-full mb-1 ${dayData.isSaved ? 'bg-green-500' : 'bg-gray-200'}`} />
                   <p className="text-xs text-gray-600">{day.slice(0, 3)}</p>
                   <p className="text-xs font-semibold text-gray-800">₹{dayData.amount}</p>
                 </div>
@@ -351,10 +509,9 @@ const LabourPayment = () => {
           </div>
 
           {/* Day Selection */}
-          <div className="grid grid-cols-6 gap-2 mb-6">
+          <div className="grid grid-cols-7 gap-2 mb-6">
             {days.map(day => {
               const dayData = currentWeekData.dailyData[day];
-              const isCompleted = dayData.headMason > 0 || dayData.mason > 0 || dayData.mHelper > 0 || dayData.wHelper > 0;
               return (
                 <button
                   key={day}
@@ -362,13 +519,13 @@ const LabourPayment = () => {
                   className={`py-2 px-4 rounded-md text-sm font-medium transition-colors relative
                     ${selectedDay === day
                       ? 'bg-red-500 text-white'
-                      : isCompleted
+                      : dayData.isSaved
                         ? 'bg-green-100 text-green-800 hover:bg-green-200'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                  title={isCompleted ? `₹${dayData.amount} - ${dayData.workType || 'No work type'}` : 'No data entered'}
+                  title={dayData.isSaved ? `₹${dayData.amount}` : 'No data entered'}
                 >
-                  {day}
-                  {isCompleted && (
+                  {day.slice(0, 3)}
+                  {dayData.isSaved && (
                     <span className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full transform -translate-y-1 translate-x-1" />
                   )}
                 </button>
@@ -378,26 +535,6 @@ const LabourPayment = () => {
 
           {/* Form */}
           <div className="space-y-4">
-            {/* Work Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Work Type *
-              </label>
-              <select
-                value={dayFormData.workType}
-                onChange={(e) => handleInputChange('workType', e.target.value)}
-                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-              >
-                <option value="">Select Work Type</option>
-                <option value="Column BarBending">Column BarBending</option>
-                <option value="Beam BarBending">Beam BarBending</option>
-                <option value="Slab BarBending">Slab BarBending</option>
-                <option value="Concrete Work">Concrete Work</option>
-                <option value="Masonry Work">Masonry Work</option>
-                <option value="General Construction">General Construction</option>
-              </select>
-            </div>
-
             {/* Staff Inputs */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Head Mason */}
@@ -457,6 +594,21 @@ const LabourPayment = () => {
               </div>
             </div>
 
+            {/* Miscellaneous Amount */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Miscellaneous Amount (₹)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={dayFormData.miscAmount}
+                onChange={(e) => handleInputChange('miscAmount', e.target.value)}
+                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="Enter any additional amount"
+              />
+            </div>
+
             {/* Remarks */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -497,35 +649,71 @@ const LabourPayment = () => {
 
       {/* Confirmation Modal for Clear Day */}
       {showConfirmClear && (
+        <DeleteVerificationDialog
+          isOpen={showConfirmClear}
+          onClose={() => setShowConfirmClear(false)}
+          onConfirm={clearDayData}
+          itemName={selectedDay}
+          itemType="Day"
+          verificationText={selectedDay}
+        />
+      )}
+
+      {/* Week Details Modal */}
+      {showWeekDetails && selectedWeek && (
+        <WeekDetailsModal
+          weekData={selectedWeek}
+          onClose={() => setShowWeekDetails(false)}
+          onEdit={handleWeekDetailsEdit}
+        />
+      )}
+
+      {/* Zero Staff Confirmation Modal */}
+      {showZeroStaffModal && (
+        <ZeroStaffModal />
+      )}
+
+      {/* Edit Confirmation Modal */}
+      {showEditConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Clear Day Data?</h3>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Edit2 className="text-blue-500" />
+              Edit {selectedDay}'s Data
+            </h3>
             <p className="text-gray-600 mb-4">
-              This will remove all data for {selectedDay}. This action cannot be undone.
+              You are about to modify existing data for {selectedDay}. This will update the overall week calculations.
             </p>
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => setShowConfirmClear(false)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md font-medium"
+                onClick={() => setShowEditConfirm(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
               >
                 Cancel
               </button>
               <button
-                onClick={clearDayData}
-                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md font-medium"
+                onClick={() => {
+                  setShowEditConfirm(false);
+                  // Keep the current data loaded for editing
+                }}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
               >
-                Clear Data
+                Proceed with Edit
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Week Details Modal */}
-      {selectedWeek && (
-        <WeekDetailsModal
-          weekData={selectedWeek}
-          onClose={() => setSelectedWeek(null)}
+      {/* Week Progress Modal */}
+      {showWeekProgress && (
+        <WeekProgressModal 
+          onClose={() => setShowWeekProgress(false)}
+          onEdit={() => {
+            setShowWeekProgress(false);
+            // Handle edit functionality
+            showInfo("Select the day you want to edit");
+          }}
         />
       )}
     </>

@@ -26,6 +26,7 @@ const DailyReport = () => {
       if (!acc[key]) {
         acc[key] = {
           no: entry.no,
+          drNo: entry.drNo || '-',
           particulars: entry.particulars,
           date: entry.date,
           amount: entry.amount,
@@ -44,13 +45,14 @@ const DailyReport = () => {
         acc[key].quantity += entry.quantity;
         acc[key].transactions.push(entry);
         
-        // Keep track of the latest transaction date
+        // Keep track of the latest transaction date and DR number
         const currentDate = new Date(entry.date);
         const existingDate = new Date(acc[key].date);
         if (currentDate > existingDate) {
           acc[key].date = entry.date;
-          acc[key].no = entry.no; // Use the most recent transaction ID
-          acc[key].remarks = entry.remarks; // Use the latest remarks
+          acc[key].no = entry.no;
+          acc[key].drNo = entry.drNo || '-';
+          acc[key].remarks = entry.remarks;
         }
       }
       return acc;
@@ -171,6 +173,12 @@ const DailyReport = () => {
             <Download size={18} />
             EXPORT TO EXCEL
           </button>
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="bg-[#7BAFD4] text-white px-6 py-2 rounded-lg hover:bg-[#6B9FD4] transition-colors"
+          >
+            Add Entry
+          </button>
         </div>
 
         {/* Stats Grid */}
@@ -233,7 +241,7 @@ const DailyReport = () => {
             <table className="w-full text-left">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Latest NO.</th>
+                  <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">DR. No.</th>
                   <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Particulars</th>
                   <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Latest Date</th>
                   <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Total Amount</th>
@@ -247,7 +255,7 @@ const DailyReport = () => {
               <tbody className="divide-y divide-gray-200">
                 {groupedTransactions.map((entry) => (
                   <tr key={entry.particulars} className="text-sm text-[#4A5568] hover:bg-gray-50">
-                    <td className="px-6 py-4">{entry.no}</td>
+                    <td className="px-6 py-4">{entry.drNo}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center">
                         <span className="text-[#7BAFD4]">{entry.particulars}</span>
@@ -276,16 +284,6 @@ const DailyReport = () => {
               </tfoot>
             </table>
           </div>
-        </div>
-
-        {/* Add Entry Button */}
-        <div className="mt-6 flex justify-end">
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="bg-[#7BAFD4] text-white px-6 py-2 rounded-lg hover:bg-[#6B9FD4] transition-colors"
-          >
-            Add Entry
-          </button>
         </div>
 
         {/* Add Entry Modal */}

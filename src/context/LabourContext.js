@@ -28,18 +28,32 @@ export const LabourProvider = ({ children }) => {
   // Counter for sequential IDs
   const [nextId, setNextId] = useState(1);
 
+  // Initialize empty day data
+  const emptyDayData = {
+    headMason: 0,
+    mason: 0,
+    mHelper: 0,
+    wHelper: 0,
+    workType: '',
+    remarks: '',
+    amount: 0,
+    miscAmount: 0,
+    isSaved: false
+  };
+
   // Current week data (Monday to Saturday)
   const [currentWeekData, setCurrentWeekData] = useState({
     weekNumber: 1,
     startDate: null,
     endDate: null,
     dailyData: {
-      Monday: { headMason: 0, mason: 0, mHelper: 0, wHelper: 0, workType: '', remarks: '', amount: 0 },
-      Tuesday: { headMason: 0, mason: 0, mHelper: 0, wHelper: 0, workType: '', remarks: '', amount: 0 },
-      Wednesday: { headMason: 0, mason: 0, mHelper: 0, wHelper: 0, workType: '', remarks: '', amount: 0 },
-      Thursday: { headMason: 0, mason: 0, mHelper: 0, wHelper: 0, workType: '', remarks: '', amount: 0 },
-      Friday: { headMason: 0, mason: 0, mHelper: 0, wHelper: 0, workType: '', remarks: '', amount: 0 },
-      Saturday: { headMason: 0, mason: 0, mHelper: 0, wHelper: 0, workType: '', remarks: '', amount: 0 }
+      Monday: { ...emptyDayData },
+      Tuesday: { ...emptyDayData },
+      Wednesday: { ...emptyDayData },
+      Thursday: { ...emptyDayData },
+      Friday: { ...emptyDayData },
+      Saturday: { ...emptyDayData },
+      Sunday: { ...emptyDayData }
     },
     totalAmount: 0,
     isCompleted: false
@@ -100,18 +114,19 @@ export const LabourProvider = ({ children }) => {
 
       setLabourPaymentData(prev => [...prev, completedWeek]);
 
-      // Reset for new week (daily data stays in Labour Bill)
+      // Reset for new week with empty day data
       setCurrentWeekData({
         weekNumber: currentWeekData.weekNumber + 1,
         startDate: null,
         endDate: null,
         dailyData: {
-          Monday: { headMason: 0, mason: 0, mHelper: 0, wHelper: 0, workType: '', remarks: '', amount: 0 },
-          Tuesday: { headMason: 0, mason: 0, mHelper: 0, wHelper: 0, workType: '', remarks: '', amount: 0 },
-          Wednesday: { headMason: 0, mason: 0, mHelper: 0, wHelper: 0, workType: '', remarks: '', amount: 0 },
-          Thursday: { headMason: 0, mason: 0, mHelper: 0, wHelper: 0, workType: '', remarks: '', amount: 0 },
-          Friday: { headMason: 0, mason: 0, mHelper: 0, wHelper: 0, workType: '', remarks: '', amount: 0 },
-          Saturday: { headMason: 0, mason: 0, mHelper: 0, wHelper: 0, workType: '', remarks: '', amount: 0 }
+          Monday: { ...emptyDayData },
+          Tuesday: { ...emptyDayData },
+          Wednesday: { ...emptyDayData },
+          Thursday: { ...emptyDayData },
+          Friday: { ...emptyDayData },
+          Saturday: { ...emptyDayData },
+          Sunday: { ...emptyDayData }
         },
         totalAmount: 0,
         isCompleted: false
@@ -151,9 +166,7 @@ export const LabourProvider = ({ children }) => {
 
   // Check if current week is complete (all days filled)
   const isWeekComplete = () => {
-    return Object.values(currentWeekData.dailyData).every(dayData =>
-      dayData.headMason > 0 || dayData.mason > 0 || dayData.mHelper > 0 || dayData.wHelper > 0
-    );
+    return Object.values(currentWeekData.dailyData).every(dayData => dayData.isSaved);
   };
 
   const value = {

@@ -8,6 +8,7 @@ const EditProjectModal = ({ isOpen, onClose, onSave, project }) => {
     name: "",
     startDate: "",
     status: "Planning",
+    isWatermarked: false
   });
 
   // Convert display date format (e.g., "15 Jan 2023") to input date format (YYYY-MM-DD)
@@ -34,6 +35,7 @@ const EditProjectModal = ({ isOpen, onClose, onSave, project }) => {
         name: project.name || "",
         startDate: convertToInputDate(project.startDate) || "",
         status: project.status || "Planning",
+        isWatermarked: project.isWatermarked || false
       });
     }
   }, [project]);
@@ -100,7 +102,8 @@ const EditProjectModal = ({ isOpen, onClose, onSave, project }) => {
       const updatedProject = {
         ...project,
         ...formData,
-        startDate: convertToDisplayDate(formData.startDate)
+        startDate: convertToDisplayDate(formData.startDate),
+        isWatermarked: formData.status === "Approved" ? true : project?.isWatermarked || false
       };
 
       onSave(updatedProject);
@@ -117,6 +120,7 @@ const EditProjectModal = ({ isOpen, onClose, onSave, project }) => {
         name: project.name || "",
         startDate: convertToInputDate(project.startDate) || "",
         status: project.status || "Planning",
+        isWatermarked: project.isWatermarked || false
       });
     }
     setErrors({});
@@ -125,7 +129,7 @@ const EditProjectModal = ({ isOpen, onClose, onSave, project }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black bg-opacity-80 backdrop-blur-sm">
-      <div className="bg-white rounded-lg shadow-xl max-w-sm sm:max-w-md w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-xs sm:max-w-md max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-2 sm:p-6">
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
           <h2 className="text-lg sm:text-xl font-bold text-gray-900">Edit Project</h2>
@@ -182,22 +186,32 @@ const EditProjectModal = ({ isOpen, onClose, onSave, project }) => {
             {errors.startDate && <p className="text-red-500 text-xs mt-1">{errors.startDate}</p>}
           </div>
 
-          {/* Status */}
-          <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-2">
-              Project Status *
-            </label>
-            <select
-              id="status"
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              className="w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#7BAFD4] text-base"
-            >
-              <option value="Planning">Planning</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Completed">Completed</option>
-            </select>
+          {/* Horizontal line (below which project status and owner name are rendered) */}
+          <hr className="my-4 border-t border-gray-200" />
+
+          {/* Project Status and Owner Name on the same line */}
+          <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <div className="flex-1 w-full">
+              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-2">Project Status *</label>
+              <select
+                id="status"
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#7BAFD4] text-base"
+              >
+                <option value="Planning">Planning</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+                <option value="Approved">Approved</option>
+              </select>
+            </div>
+            <div className="flex-1 w-full">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Owner</label>
+              <div className="px-3 py-3 border border-gray-300 rounded-md bg-gray-50 text-base">
+                {project?.owner || 'N/A'}
+              </div>
+            </div>
           </div>
 
           {/* Action Buttons */}

@@ -80,7 +80,7 @@ const projectsData = [
 
 const Projects = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, user } = useAuth();
   const { selectProject } = useProject();
   const { showSuccess, showError, showInfo } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
@@ -165,9 +165,9 @@ const Projects = () => {
   // Function to get greeting based on time of day
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Good morning,";
-    if (hour < 17) return "Good afternoon,";
-    return "Good evening,";
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
   };
 
   // Handle logout
@@ -183,7 +183,7 @@ const Projects = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex justify-between items-center">
             <div className="text-lg sm:text-xl md:text-2xl font-bold text-white truncate pr-4">
-              {getGreeting()} Abhishek U!
+              {getGreeting()} {user?.name || 'User'}!
             </div>
             <button
               onClick={handleLogout}
@@ -198,7 +198,7 @@ const Projects = () => {
       </div>
 
       <div className="min-h-screen bg-gradient-to-b from-gray-200 to-gray-400 p-3 sm:p-4 md:p-6 lg:p-8 overflow-x-hidden">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+        <div className="max-w-7xl mx-auto">
 
           {/* Header */}
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 sm:mb-8">
@@ -244,7 +244,7 @@ const Projects = () => {
           </div>
 
           {/* Projects Grid */}
-          <div className="grid grid-cols-1 xs:grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6 lg:gap-8 justify-items-center place-items-start pb-16 sm:pb-20">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredProjects.map((project) => (
               <div key={project.id} className="flex justify-center w-full max-w-[280px] sm:max-w-[250px]">
                 <ProjectCard

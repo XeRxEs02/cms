@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Navbar from "../Components/Navbar";
 import { useLocation } from "react-router-dom";
 import { DraftingCompass, Search, Upload, X, Eye, FileText, Image, Check, X as XMark } from "lucide-react";
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
 import { useToast } from '../context/ToastContext';
 
 // Initial drawings data
@@ -228,36 +228,69 @@ const ViewDrawingModal = ({ isOpen, onClose, drawing, onStatusChange }) => {
         // Create canvas
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        
-        // Set canvas size to image size
         canvas.width = img.width;
         canvas.height = img.height;
-        
-        // Draw original image
         ctx.drawImage(img, 0, 0);
-        
-        // Configure watermark
         const watermarkText = 'APPROVED';
-        ctx.fillStyle = 'rgba(128, 128, 128, 0.15)'; // Grey with 15% opacity
         
-        // Single smaller watermark
-        const fontSize = Math.min(canvas.width, canvas.height) * 0.1;
+        // Calculate maximum possible font size to ensure text fits
+        const diagonal = Math.sqrt(canvas.width * canvas.width + canvas.height * canvas.height);
+        let fontSize = diagonal * 0.25; // Keep the larger font size
+        
+        // Measure text width with current font size
         ctx.font = `bold ${fontSize}px Arial`;
+        const metrics = ctx.measureText(watermarkText);
+        const textWidth = metrics.width;
+        const textHeight = fontSize * 1.2;
         
-        // Center the watermark
-        const textMetrics = ctx.measureText(watermarkText);
-        const x = (canvas.width - textMetrics.width) / 2;
-        const y = (canvas.height + fontSize / 2) / 2;
+        // Calculate rotated text dimensions with padding
+        const padding = 30;
+        const rotatedWidth = Math.abs(textWidth * Math.cos(Math.PI/4)) + Math.abs(textHeight * Math.sin(Math.PI/4)) + padding;
+        const rotatedHeight = Math.abs(textWidth * Math.sin(Math.PI/4)) + Math.abs(textHeight * Math.cos(Math.PI/4)) + padding;
         
-        ctx.fillText(watermarkText, x, y);
+        // Adjust font size if text is too large
+        while ((rotatedWidth > canvas.width * 0.75 || rotatedHeight > canvas.height * 0.75) && fontSize > 12) {
+          fontSize *= 0.95;
+          ctx.font = `bold ${fontSize}px Arial`;
+          const newMetrics = ctx.measureText(watermarkText);
+          const newTextWidth = newMetrics.width;
+          const newTextHeight = fontSize * 1.2;
+          const newRotatedWidth = Math.abs(newTextWidth * Math.cos(Math.PI/4)) + Math.abs(newTextHeight * Math.sin(Math.PI/4)) + padding;
+          const newRotatedHeight = Math.abs(newTextWidth * Math.sin(Math.PI/4)) + Math.abs(newTextHeight * Math.cos(Math.PI/4)) + padding;
+          if (newRotatedWidth <= canvas.width * 0.75 && newRotatedHeight <= canvas.height * 0.75) {
+            break;
+          }
+        }
         
-        // Convert canvas to blob
+        // Verify final text dimensions
+        const finalMetrics = ctx.measureText(watermarkText);
+        const finalWidth = finalMetrics.width;
+        const finalHeight = fontSize * 1.2;
+        const finalRotatedWidth = Math.abs(finalWidth * Math.cos(Math.PI/4)) + Math.abs(finalHeight * Math.sin(Math.PI/4)) + padding;
+        const finalRotatedHeight = Math.abs(finalWidth * Math.sin(Math.PI/4)) + Math.abs(finalHeight * Math.cos(Math.PI/4)) + padding;
+        
+        // Only proceed if text fits within limits
+        if (finalRotatedWidth > canvas.width * 0.75 || finalRotatedHeight > canvas.height * 0.75) {
+          reject(new Error('Page too small to fit watermark properly'));
+          return;
+        }
+        
+        ctx.fillStyle = 'rgba(128, 128, 128, 0.35)';
+        ctx.save();
+        // Position text in top left corner with padding
+        const leftPadding = padding;
+        const topPadding = padding;
+        ctx.translate(leftPadding, topPadding);
+        ctx.rotate(-Math.PI / 4);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText(watermarkText, 0, 0);
+        ctx.restore();
         canvas.toBlob((blob) => {
           const watermarkedFile = new File([blob], file.name, { type: file.type });
           resolve(watermarkedFile);
         }, file.type);
       };
-      
       img.onerror = () => reject(new Error('Failed to load image'));
       img.src = URL.createObjectURL(file);
     });
@@ -282,29 +315,63 @@ const ViewDrawingModal = ({ isOpen, onClose, drawing, onStatusChange }) => {
         const helveticaFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
         
         const pages = pdfDoc.getPages();
-        pages.forEach((page) => {
+        for (const page of pages) {
           const { width, height } = page.getSize();
-          
-          // Add single watermark
+          const diagonal = Math.sqrt(width * width + height * height);
           const watermarkText = 'APPROVED';
-          const fontSize = Math.min(width, height) * 0.1;
+          
+          // Calculate initial font size
+          let fontSize = diagonal * 0.25;
+          
+          // Calculate text dimensions with padding
+          const padding = 30;
           const textWidth = helveticaFont.widthOfTextAtSize(watermarkText, fontSize);
-          const textHeight = fontSize;
-
-          // Center watermark
-          const centerX = (width - textWidth) / 2;
-          const centerY = (height - textHeight) / 2;
-
-          // Draw single watermark with grey color and minimal transparency
+          const textHeight = fontSize * 1.2;
+          
+          // Calculate rotated text dimensions
+          const rotatedWidth = Math.abs(textWidth * Math.cos(Math.PI/4)) + Math.abs(textHeight * Math.sin(Math.PI/4)) + padding;
+          const rotatedHeight = Math.abs(textWidth * Math.sin(Math.PI/4)) + Math.abs(textHeight * Math.cos(Math.PI/4)) + padding;
+          
+          // Adjust font size if text is too large
+          while ((rotatedWidth > width * 0.75 || rotatedHeight > height * 0.75) && fontSize > 12) {
+            fontSize *= 0.95;
+            const newTextWidth = helveticaFont.widthOfTextAtSize(watermarkText, fontSize);
+            const newTextHeight = fontSize * 1.2;
+            const newRotatedWidth = Math.abs(newTextWidth * Math.cos(Math.PI/4)) + Math.abs(newTextHeight * Math.sin(Math.PI/4)) + padding;
+            const newRotatedHeight = Math.abs(newTextWidth * Math.sin(Math.PI/4)) + Math.abs(newTextHeight * Math.cos(Math.PI/4)) + padding;
+            if (newRotatedWidth <= width * 0.75 && newRotatedHeight <= height * 0.75) {
+              break;
+            }
+          }
+          
+          // Verify final text dimensions
+          const finalTextWidth = helveticaFont.widthOfTextAtSize(watermarkText, fontSize);
+          const finalTextHeight = fontSize * 1.2;
+          const finalRotatedWidth = Math.abs(finalTextWidth * Math.cos(Math.PI/4)) + Math.abs(finalTextHeight * Math.sin(Math.PI/4)) + padding;
+          const finalRotatedHeight = Math.abs(finalTextWidth * Math.sin(Math.PI/4)) + Math.abs(finalTextHeight * Math.cos(Math.PI/4)) + padding;
+          
+          // Only proceed if text fits within limits
+          if (finalRotatedWidth > width * 0.75 || finalRotatedHeight > height * 0.75) {
+            throw new Error('Page too small to fit watermark properly');
+          }
+          
+          // Calculate position - top left corner with padding
+          const leftPadding = padding;
+          const topPadding = padding;
+          
+          // Draw watermark starting from top left
           page.drawText(watermarkText, {
-            x: centerX,
-            y: centerY,
+            x: leftPadding,
+            y: height - topPadding, // PDF coordinates start from bottom-left
             size: fontSize,
             font: helveticaFont,
             color: rgb(0.5, 0.5, 0.5),
-            opacity: 0.15
+            opacity: 0.35,
+            rotate: degrees(-45),
+            textAlign: 'left',
+            textBaseline: 'top'
           });
-        });
+        }
 
         const modifiedPdfBytes = await pdfDoc.save();
         watermarkedFile = new File([modifiedPdfBytes], drawing.file.name, { type: 'application/pdf' });
@@ -324,7 +391,9 @@ const ViewDrawingModal = ({ isOpen, onClose, drawing, onStatusChange }) => {
         stack: error.stack,
         errorObject: error
       });
-      showToast('Failed to approve drawing', 'error');
+      showToast(error.message === 'Page too small to fit watermark properly' 
+        ? 'Page size too small to add watermark properly' 
+        : 'Failed to approve drawing', 'error');
     } finally {
       setIsProcessing(false);
     }

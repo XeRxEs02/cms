@@ -1,7 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useAppContext } from '../context/AppContext';
 
 const AddDailyReportModal = ({ isOpen, onClose, onAdd }) => {
+  const { appData } = useAppContext();
+  
+  // Get unique particulars from daily report entries for dropdown
+  const uniqueParticulars = Array.from(
+    new Set(appData.dailyReport.entries.map(entry => entry.particulars))
+  ).sort();
+
+  // Function to generate next DR number
+  const getNextDRNumber = () => {
+    // Get all existing DR numbers
+    const existingDRs = appData.dailyReport.entries
+      .map(entry => entry.drNo)
+      .filter(drNo => drNo && drNo.startsWith('DR'))
+      .map(drNo => {
+        const num = parseInt(drNo.replace('DR', ''));
+        return isNaN(num) ? 0 : num;
+      });
+
+    // Find the highest number
+    const maxDR = Math.max(0, ...existingDRs);
+    
+    // Generate next number, zero-padded to 3 digits
+    return `DR${(maxDR + 1).toString().padStart(3, '0')}`;
+  };
+
   const [formData, setFormData] = useState({
     particulars: '',
     date: new Date().toISOString().split('T')[0],
@@ -9,8 +35,34 @@ const AddDailyReportModal = ({ isOpen, onClose, onAdd }) => {
     paid: '',
     unit: '',
     quantity: '1',
-    remarks: ''
+    remarks: '',
+    drNo: getNextDRNumber()
   });
+
+  // Reset form and generate new DR number when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setFormData(prev => ({
+        ...prev,
+        drNo: getNextDRNumber(),
+        particulars: '',
+        date: new Date().toISOString().split('T')[0],
+        amount: '',
+        paid: '',
+        unit: '',
+        quantity: '1',
+        remarks: ''
+      }));
+    }
+  }, [isOpen]);
+
+  // Get all unique amounts for the selected particular
+  const amountOptions = formData.particulars
+    ? Array.from(new Set(appData.dailyReport.entries
+        .filter(entry => entry.particulars === formData.particulars)
+        .map(entry => entry.amount)
+      )).sort((a, b) => a - b)
+    : [];
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -21,17 +73,6 @@ const AddDailyReportModal = ({ isOpen, onClose, onAdd }) => {
       paid: Number(formData.paid),
       balance,
       quantity: Number(formData.quantity)
-    });
-    
-    // Reset form
-    setFormData({
-      particulars: '',
-      date: new Date().toISOString().split('T')[0],
-      amount: '',
-      paid: '',
-      unit: '',
-      quantity: '1',
-      remarks: ''
     });
   };
 
@@ -62,16 +103,40 @@ const AddDailyReportModal = ({ isOpen, onClose, onAdd }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
               <label className="block text-sm font-medium text-[#2C3E50] mb-1">
-                Particulars*
+                DR. No.
               </label>
               <input
                 type="text"
+                name="drNo"
+                value={formData.drNo}
+                readOnly
+                className="w-full border border-gray-300 rounded-md p-2 bg-gray-50 text-gray-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[#2C3E50] mb-1">
+                Particulars*
+              </label>
+              <select
                 name="particulars"
                 value={formData.particulars}
                 onChange={handleChange}
                 required
                 className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-[#7BAFD4] text-[#4A5568]"
-              />
+              >
+                <option value="">Select from Inventory List</option>
+                {uniqueParticulars.map((particular) => (
+                  <option key={particular} value={particular}>
+                    {particular}
+                  </option>
+                ))}
+              </select>
+              {uniqueParticulars.length === 0 && (
+                <p className="text-sm text-red-500 mt-1">
+                  No items in inventory list. Please add items to inventory first.
+                </p>
+              )}
             </div>
 
             <div>
@@ -99,8 +164,16 @@ const AddDailyReportModal = ({ isOpen, onClose, onAdd }) => {
                 onChange={handleChange}
                 required
                 min="0"
+                list="amount-suggestions"
                 className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-[#7BAFD4] text-[#4A5568]"
               />
+              {amountOptions.length > 0 && (
+                <datalist id="amount-suggestions">
+                  {amountOptions.map((amt) => (
+                    <option key={amt} value={amt} />
+                  ))}
+                </datalist>
+              )}
             </div>
 
             <div>
@@ -170,7 +243,12 @@ const AddDailyReportModal = ({ isOpen, onClose, onAdd }) => {
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-[#7BAFD4] text-white rounded-lg hover:bg-[#6B9FD4] transition-colors"
+              disabled={uniqueParticulars.length === 0}
+              className={`px-6 py-2 rounded-lg transition-colors ${
+                uniqueParticulars.length === 0
+                  ? 'bg-gray-300 cursor-not-allowed'
+                  : 'bg-[#7BAFD4] text-white hover:bg-[#6B9FD4]'
+              }`}
             >
               Add Entry
             </button>

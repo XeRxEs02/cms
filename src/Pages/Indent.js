@@ -5,42 +5,8 @@ import { BadgeInfo, X } from "lucide-react";
 import { useToast } from "../context/ToastContext";
 
 // General Information Modal Component
-const AddGeneralInfoModal = ({ isOpen, onClose, onSave }) => {
+const AddGeneralInfoModal = ({ isOpen, onClose, onSave, clientList }) => {
   const { showSuccess, showError, showInfo } = useToast();
-
-  // Predefined clients with their associated information
-  const predefinedClients = {
-    "Mr. Narendra Kori": {
-      projectNo: "#MC02",
-      labourContractor: "Thippanna B",
-      address: "Mahendra Enclave",
-      totalBudget: "10,00,000"
-    },
-    "Mrs. Priya Sharma": {
-      projectNo: "#PS03",
-      labourContractor: "Rajesh Kumar",
-      address: "Green Valley Apartments",
-      totalBudget: "15,00,000"
-    },
-    "Mr. Amit Patel": {
-      projectNo: "#AP04",
-      labourContractor: "Suresh Reddy",
-      address: "Sunrise Residency",
-      totalBudget: "12,50,000"
-    },
-    "Dr. Kavitha Rao": {
-      projectNo: "#KR05",
-      labourContractor: "Venkatesh Naidu",
-      address: "Medical Complex Plaza",
-      totalBudget: "20,00,000"
-    },
-    "Mr. Ravi Kumar": {
-      projectNo: "#RK06",
-      labourContractor: "Mohan Singh",
-      address: "Tech Park Avenue",
-      totalBudget: "18,75,000"
-    }
-  };
 
   const [formData, setFormData] = useState({
     clientName: "",
@@ -50,19 +16,19 @@ const AddGeneralInfoModal = ({ isOpen, onClose, onSave }) => {
     totalBudget: ""
   });
 
+  // Auto-fill fields when client is selected
   const handleClientChange = (e) => {
     const selectedClient = e.target.value;
-    const clientData = predefinedClients[selectedClient];
-
+    setFormData((prev) => ({ ...prev, clientName: selectedClient }));
+    const clientData = clientList.find((c) => c.clientName === selectedClient);
     if (clientData) {
       setFormData({
-        clientName: selectedClient,
+        clientName: clientData.clientName,
         projectNo: clientData.projectNo,
         labourContractor: clientData.labourContractor,
         address: clientData.address,
         totalBudget: clientData.totalBudget
       });
-
       showInfo(`Client details for "${selectedClient}" auto-filled successfully!`);
     } else {
       setFormData({
@@ -82,16 +48,12 @@ const AddGeneralInfoModal = ({ isOpen, onClose, onSave }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
     if (!formData.clientName || !formData.projectNo || !formData.labourContractor || !formData.address || !formData.totalBudget) {
       showError("Please fill in all required fields.");
       return;
     }
-
     onSave(formData);
     showSuccess(`General information for "${formData.clientName}" saved successfully!`);
-
-    // Reset form
     setFormData({
       clientName: "",
       projectNo: "",
@@ -109,11 +71,8 @@ const AddGeneralInfoModal = ({ isOpen, onClose, onSave }) => {
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">Add General Information</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            <X size={20} />
-          </button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
         </div>
-
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
@@ -128,14 +87,13 @@ const AddGeneralInfoModal = ({ isOpen, onClose, onSave }) => {
                 required
               >
                 <option value="">Select a client</option>
-                {Object.keys(predefinedClients).map((client) => (
-                  <option key={client} value={client}>
-                    {client}
+                {clientList.map((client) => (
+                  <option key={client.clientName} value={client.clientName}>
+                    {client.clientName}
                   </option>
                 ))}
               </select>
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Project No. *
@@ -146,11 +104,9 @@ const AddGeneralInfoModal = ({ isOpen, onClose, onSave }) => {
                 value={formData.projectNo}
                 onChange={handleFieldChange}
                 className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-                placeholder="Project number will be auto-filled when client is selected"
                 required
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Labour Contractor *
@@ -161,11 +117,9 @@ const AddGeneralInfoModal = ({ isOpen, onClose, onSave }) => {
                 value={formData.labourContractor}
                 onChange={handleFieldChange}
                 className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-                placeholder="Labour contractor will be auto-filled when client is selected"
                 required
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Address *
@@ -176,11 +130,9 @@ const AddGeneralInfoModal = ({ isOpen, onClose, onSave }) => {
                 value={formData.address}
                 onChange={handleFieldChange}
                 className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-                placeholder="Address will be auto-filled when client is selected"
                 required
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Total Budget (₹) *
@@ -191,13 +143,11 @@ const AddGeneralInfoModal = ({ isOpen, onClose, onSave }) => {
                 value={formData.totalBudget}
                 onChange={handleFieldChange}
                 className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-                placeholder="Budget will be auto-filled when client is selected"
                 required
               />
             </div>
           </div>
-
-          <div className="flex justify-end space-x-2 mt-6">
+          <div className="flex justify-end gap-2 mt-4">
             <button
               type="button"
               onClick={onClose}
@@ -219,33 +169,22 @@ const AddGeneralInfoModal = ({ isOpen, onClose, onSave }) => {
 };
 
 // Rate List Modal Component
-const AddRateListModal = ({ isOpen, onClose, onSave }) => {
+const AddRateListModal = ({ isOpen, onClose, onSave, rateList }) => {
   const { showSuccess, showError, showInfo } = useToast();
-
-  // Predefined roles with their rates
-  const predefinedRoles = {
-    "Head Mason": "800",
-    "Mason": "800",
-    "M - Helper": "600",
-    "W - Helper": "400"
-  };
 
   const [formData, setFormData] = useState({
     role: "",
     rate: ""
   });
 
+  // Allow typing a new role or selecting existing
   const handleRoleChange = (e) => {
-    const selectedRole = e.target.value;
-    const autoRate = predefinedRoles[selectedRole] || "";
-
-    setFormData({
-      role: selectedRole,
-      rate: autoRate
-    });
-
-    if (selectedRole && autoRate) {
-      showInfo(`Rate automatically set to ₹${autoRate} for ${selectedRole}`);
+    setFormData((prev) => ({ ...prev, role: e.target.value }));
+    const roleData = rateList.find((r) => r[0] === e.target.value);
+    if (roleData) {
+      setFormData({ role: roleData[0], rate: roleData[1] });
+    } else {
+      setFormData((prev) => ({ ...prev, rate: "" }));
     }
   };
 
@@ -255,16 +194,10 @@ const AddRateListModal = ({ isOpen, onClose, onSave }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
     if (!formData.role || !formData.rate) {
-      showError("Please select a role and enter a rate.");
       return;
     }
-
-    onSave(formData);
-    showSuccess(`Rate for ${formData.role} added successfully!`);
-
-    // Reset form
+    onSave({ role: formData.role, rate: formData.rate });
     setFormData({ role: "", rate: "" });
     onClose();
   };
@@ -276,33 +209,30 @@ const AddRateListModal = ({ isOpen, onClose, onSave }) => {
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">Add Rate List Item</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            <X size={20} />
-          </button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
         </div>
-
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Role *
               </label>
-              <select
+              <input
+                type="text"
                 name="role"
+                list="role-list"
                 value={formData.role}
                 onChange={handleRoleChange}
                 className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
                 required
-              >
-                <option value="">Select a role</option>
-                {Object.keys(predefinedRoles).map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
+                placeholder="Type or select a role"
+              />
+              <datalist id="role-list">
+                {rateList.map(([role]) => (
+                  <option key={role} value={role} />
                 ))}
-              </select>
+              </datalist>
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Rate (₹) *
@@ -313,13 +243,11 @@ const AddRateListModal = ({ isOpen, onClose, onSave }) => {
                 value={formData.rate}
                 onChange={handleRateChange}
                 className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-                placeholder="Rate will be auto-filled when role is selected"
                 required
               />
             </div>
           </div>
-
-          <div className="flex justify-end space-x-2 mt-6">
+          <div className="flex justify-end gap-2 mt-4">
             <button
               type="button"
               onClick={onClose}
@@ -333,6 +261,70 @@ const AddRateListModal = ({ isOpen, onClose, onSave }) => {
             >
               Save
             </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Add Client Modal Component
+const AddClientModal = ({ isOpen, onClose, onAdd, existingClients }) => {
+  const [formData, setFormData] = useState({
+    clientName: "",
+    projectNo: "",
+    labourContractor: "",
+    address: "",
+    totalBudget: ""
+  });
+  const [error, setError] = useState("");
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // Validate all fields are filled
+    if (Object.values(formData).some((v) => !v.trim())) {
+      setError("All fields are required.");
+      return;
+    }
+    // Prevent duplicate client names
+    if (existingClients.includes(formData.clientName)) {
+      setError("Client name already exists.");
+      return;
+    }
+    onAdd(formData);
+    setFormData({
+      clientName: "",
+      projectNo: "",
+      labourContractor: "",
+      address: "",
+      totalBudget: ""
+    });
+    setError("");
+    onClose();
+  };
+
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Add Client</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input name="clientName" value={formData.clientName} onChange={handleChange} className="w-full border p-2 rounded" placeholder="Name of Client" />
+          <input name="projectNo" value={formData.projectNo} onChange={handleChange} className="w-full border p-2 rounded" placeholder="Project No." />
+          <input name="labourContractor" value={formData.labourContractor} onChange={handleChange} className="w-full border p-2 rounded" placeholder="Labour Contractor" />
+          <input name="address" value={formData.address} onChange={handleChange} className="w-full border p-2 rounded" placeholder="Address" />
+          <input name="totalBudget" value={formData.totalBudget} onChange={handleChange} className="w-full border p-2 rounded" placeholder="Total Budget" />
+          {error && <div className="text-red-500 text-sm">{error}</div>}
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
+            <button type="submit" className="px-4 py-2 bg-red-500 text-white rounded">Add</button>
           </div>
         </form>
       </div>
@@ -365,6 +357,19 @@ const Indent = () => {
   const [isGeneralInfoModalOpen, setIsGeneralInfoModalOpen] = useState(false);
   const [isRateListModalOpen, setIsRateListModalOpen] = useState(false);
 
+  // New state for client list and modal
+  const [clientList, setClientList] = useState([
+    {
+      clientName: "Mr. Narendra Kori",
+      projectNo: "#MC02",
+      labourContractor: "Thippanna B",
+      address: "Mahendra Enclave",
+      totalBudget: "10,00,000"
+    }
+  ]);
+  const [selectedClientIndex, setSelectedClientIndex] = useState(0);
+  const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
+
   // Function to handle saving general information
   const handleSaveGeneralInfo = (data) => {
     const newGeneralInfo = [
@@ -382,7 +387,6 @@ const Indent = () => {
   const handleSaveRateList = (data) => {
     // Check if role already exists
     const existingRoleIndex = rateList.findIndex(item => item[0] === data.role);
-
     if (existingRoleIndex !== -1) {
       // Update existing role rate
       const updatedRateList = [...rateList];
@@ -390,11 +394,18 @@ const Indent = () => {
       setRateList(updatedRateList);
       showSuccess(`Rate for ${data.role} updated to ₹${data.rate}`);
     } else {
-      // Add new role (though this shouldn't happen with predefined roles)
+      // Add new role
       const newRateList = [...rateList, [data.role, data.rate]];
       setRateList(newRateList);
       showSuccess(`Rate for ${data.role} added successfully!`);
     }
+  };
+
+  // Add client handler
+  const handleAddClient = (client) => {
+    setClientList((prev) => [...prev, client]);
+    setSelectedClientIndex(clientList.length); // select the newly added client
+    showSuccess(`Client '${client.clientName}' added!`);
   };
 
   return (
@@ -408,29 +419,33 @@ const Indent = () => {
               <h2 className="font-semibold text-lg text-gray-900">
                 General Information
               </h2>
-              <button
-                className="bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded"
-                type="button"
-                onClick={() => {
-                  setIsGeneralInfoModalOpen(true);
-                  showInfo("Add General Info modal opened. Enter project details.");
-                }}
-              >
-                Add General Information
-              </button>
+              <div className="flex gap-2">
+                <button
+                  className="bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded"
+                  type="button"
+                  onClick={() => setIsAddClientModalOpen(true)}
+                >
+                  Add Client
+                </button>
+                <button
+                  className="bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded"
+                  type="button"
+                  onClick={() => {
+                    setIsGeneralInfoModalOpen(true);
+                    showInfo("Add General Info modal opened. Enter project details.");
+                  }}
+                >
+                  General Information List
+                </button>
+              </div>
             </div>
-
             <table className="w-full text-gray-700 text-sm">
               <tbody>
-                {generalInfo.map(([label, value], index) => (
-                  <tr
-                    key={index}
-                    className="border-b last:border-0 border-gray-200"
-                  >
-                    <td className="px-6 py-3 w-1/3">{label}</td>
-                    <td className="px-6 py-3">{value}</td>
-                  </tr>
-                ))}
+                <tr><td className="px-6 py-3 w-1/3">Name Of Client</td><td className="px-6 py-3">{clientList[clientList.length-1]?.clientName}</td></tr>
+                <tr><td className="px-6 py-3 w-1/3">Project No.</td><td className="px-6 py-3">{clientList[clientList.length-1]?.projectNo}</td></tr>
+                <tr><td className="px-6 py-3 w-1/3">Labour Contractor</td><td className="px-6 py-3">{clientList[clientList.length-1]?.labourContractor}</td></tr>
+                <tr><td className="px-6 py-3 w-1/3">Address</td><td className="px-6 py-3">{clientList[clientList.length-1]?.address}</td></tr>
+                <tr><td className="px-6 py-3 w-1/3">Total Budget</td><td className="px-6 py-3">{clientList[clientList.length-1]?.totalBudget}</td></tr>
               </tbody>
             </table>
           </section>
@@ -439,16 +454,28 @@ const Indent = () => {
           <section className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 rounded-t-lg flex-wrap gap-2 bg-gray-200">
               <h2 className="font-semibold text-lg text-gray-900">Rate List</h2>
-              <button
-                className="bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded"
-                type="button"
-                onClick={() => {
-                  setIsRateListModalOpen(true);
-                  showInfo("Add Rate List modal opened. Select a role to set rates.");
-                }}
-              >
-                Add Rate List
-              </button>
+              <div className="flex gap-2">
+                <button
+                  className="bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded"
+                  type="button"
+                  onClick={() => {
+                    setIsRateListModalOpen(true);
+                    showInfo("Add Rate List modal opened. Add a new rate.");
+                  }}
+                >
+                  Add Rate
+                </button>
+                <button
+                  className="bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded"
+                  type="button"
+                  onClick={() => {
+                    setIsRateListModalOpen(true);
+                    showInfo("Add Rate List modal opened. Select a role to set rates.");
+                  }}
+                >
+                  Rate List
+                </button>
+              </div>
             </div>
 
             <table className="w-full text-gray-700 text-sm">
@@ -473,12 +500,21 @@ const Indent = () => {
         isOpen={isGeneralInfoModalOpen}
         onClose={() => setIsGeneralInfoModalOpen(false)}
         onSave={handleSaveGeneralInfo}
+        clientList={clientList}
       />
 
       <AddRateListModal
         isOpen={isRateListModalOpen}
         onClose={() => setIsRateListModalOpen(false)}
         onSave={handleSaveRateList}
+        rateList={rateList}
+      />
+
+      <AddClientModal
+        isOpen={isAddClientModalOpen}
+        onClose={() => setIsAddClientModalOpen(false)}
+        onAdd={handleAddClient}
+        existingClients={clientList.map(c => c.clientName)}
       />
     </>
   );

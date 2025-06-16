@@ -1,27 +1,16 @@
-import React, { useState } from "react";
-import { Edit, Trash2 } from "lucide-react";
-import ConfirmDialog from "./ConfirmDialog";
+import React, { useState, useRef, useEffect } from "react";
+import { Edit, Trash2, X } from "lucide-react";
+import DeleteVerificationDialog from "./DeleteVerificationDialog";
 import { useAuth } from "../context/AuthContext";
 
 const ProjectCard = ({ project, onSelect, onDelete, onEdit }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showDeletePopup, setShowDeletePopup] = useState(false);
+  const [showVerifyPopup, setShowVerifyPopup] = useState(false);
+  const [verificationInput, setVerificationInput] = useState("");
   const { user } = useAuth();
-
-  // Define an array of color schemes for the folders
-  const colorSchemes = [
-    { tab: '#5CA4F1', gradient: ['#72BAFB', '#347EE1'] }, // Blue (default)
-    { tab: '#F1A05C', gradient: ['#FBBA72', '#E17E34'] }, // Orange
-    { tab: '#5CF17E', gradient: ['#72FB9A', '#34E17E'] }, // Green
-    { tab: '#F15C5C', gradient: ['#FB7272', '#E13434'] }, // Red
-    { tab: '#C45CF1', gradient: ['#D672FB', '#9A34E1'] }, // Purple
-    { tab: '#F1D45C', gradient: ['#FBE672', '#E1B434'] }  // Yellow
-  ];
-
-  // Determine color scheme based on project ID
-  const projectIdNum = parseInt(project.id) || 0;
-  const colorIndex = projectIdNum % colorSchemes.length;
-  const colorScheme = colorSchemes[colorIndex];
+  const deleteBtnRef = useRef(null);
+  const popupRef = useRef(null);
 
   const handleDelete = () => {
     // Call the onDelete prop if it exists
@@ -34,7 +23,7 @@ const ProjectCard = ({ project, onSelect, onDelete, onEdit }) => {
 
   const handleDeleteClick = (e) => {
     e.stopPropagation();
-    setShowDeleteDialog(true);
+    setShowDeletePopup(true);
   };
 
   const handleEdit = (e) => {
@@ -53,101 +42,216 @@ const ProjectCard = ({ project, onSelect, onDelete, onEdit }) => {
     }
   };
 
+  // Helper to darken a hex color
+  function darkenColor(hex, percent) {
+    let r = parseInt(hex.slice(1, 3), 16);
+    let g = parseInt(hex.slice(3, 5), 16);
+    let b = parseInt(hex.slice(5, 7), 16);
+    r = Math.floor(r * (1 - percent));
+    g = Math.floor(g * (1 - percent));
+    b = Math.floor(b * (1 - percent));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  const baseColor = project.color || '#7BAFD4';
+  const hoveredColor = darkenColor(baseColor, 0.12); // 12% darker
+
+  // Close popups if clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (
+        popupRef.current &&
+        !popupRef.current.contains(event.target) &&
+        !deleteBtnRef.current.contains(event.target)
+      ) {
+        setShowDeletePopup(false);
+        setShowVerifyPopup(false);
+        setVerificationInput("");
+      }
+    }
+    if (showDeletePopup || showVerifyPopup) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showDeletePopup, showVerifyPopup]);
+
   return (
     <div
-      className="relative w-[180px] sm:w-[200px] mt-[50px] sm:mt-[60px] cursor-pointer flex-shrink-0 touch-manipulation"
+      className="relative w-full max-w-xs sm:max-w-sm min-w-0 h-full"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={handleSelect}
-      style={{
-        transform: isHovered ? 'translateY(-5px)' : 'translateY(0)',
-        transition: 'transform 0.2s ease-in-out',
-      }}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handleSelect();
-        }
-      }}
-      aria-label={`Open project ${project.name}`}
+      style={{ maxWidth: 200, minHeight: 160, transition: 'transform 0.2s ease', transform: isHovered ? 'scale(1.05)' : 'scale(1)' }}
     >
-      <div className="absolute w-[180px] sm:w-[200px] h-[135px] sm:h-[150px]">
-        <div
-          className="absolute top-[-12px] sm:top-[-15px] w-[135px] sm:w-[150px] h-[16px] sm:h-[20px] rounded-t-[5px]"
-          style={{
-            backgroundColor: colorScheme.tab,
-            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)'
-          }}
-        ></div>
-        <div
-          className="absolute right-[2px] top-[-5px] sm:top-[-6px] w-[135px] sm:w-[150px] h-[8px] sm:h-[10px] rounded-tr-[5px]"
-          style={{
-            backgroundColor: colorScheme.tab,
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-          }}
-        ></div>
+      {/* Action Buttons - move outside clickable area */}
+      <div className={`absolute top-1 sm:top-2 right-1 sm:right-2 flex space-x-1 transition-opacity duration-200 z-20 ${isHovered ? 'opacity-100' : 'opacity-100 sm:opacity-0'}`}>
+        <button
+          className="p-1.5 sm:p-1.5 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors touch-manipulation min-h-[32px] sm:min-h-auto"
+          onClick={handleDeleteClick}
+          aria-label={`Delete project ${project.name}`}
+          title="Delete project"
+          ref={deleteBtnRef}
+        >
+          <Trash2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+        </button>
+        <button
+          onClick={handleEdit}
+          className="p-1.5 sm:p-1.5 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors touch-manipulation min-h-[32px] sm:min-h-auto"
+          aria-label={`Edit project ${project.name}`}
+          title="Edit project"
+        >
+          <Edit className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+        </button>
       </div>
+
+      {/* Backdrop and Popups rendered at the top level, outside the card */}
+      {(showDeletePopup || showVerifyPopup) && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black bg-opacity-50"
+            onClick={() => {
+              setShowDeletePopup(false);
+              setShowVerifyPopup(false);
+              setVerificationInput("");
+            }}
+          />
+          {/* Step 1: Are you sure? Popup */}
+          {showDeletePopup && !showVerifyPopup && (
+            <div ref={popupRef} className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-64">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-semibold text-gray-900">Are you sure?</span>
+                <button onClick={() => setShowDeletePopup(false)} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
+              </div>
+              <div className="text-gray-700 text-sm mb-4">Do you want to delete the project "{project.name}"?</div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowDeletePopup(false)}
+                  className="px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
+                >No</button>
+                <button
+                  onClick={() => { setShowDeletePopup(false); setShowVerifyPopup(true); }}
+                  className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm"
+                >Yes</button>
+              </div>
+            </div>
+          )}
+          {/* Step 2: Verification Popup */}
+          {showVerifyPopup && (
+            <div ref={popupRef} className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-72">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-semibold text-gray-900">Confirm Deletion</span>
+                <button onClick={() => { setShowVerifyPopup(false); setVerificationInput(""); }} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
+              </div>
+              <div className="text-gray-700 text-sm mb-3">To confirm deletion, type the project name:</div>
+              <div className="font-semibold text-gray-800 mb-2">{project.name}</div>
+              <input
+                type="text"
+                value={verificationInput}
+                onChange={e => setVerificationInput(e.target.value)}
+                placeholder="Type project name"
+                className="w-full px-2 py-1 border border-gray-300 rounded-md mb-3 text-sm"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => { setShowVerifyPopup(false); setVerificationInput(""); }}
+                  className="px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
+                >Cancel</button>
+                <button
+                  onClick={() => {
+                    if (verificationInput.trim().toLowerCase() === project.name.trim().toLowerCase()) {
+                      handleDelete();
+                      setShowVerifyPopup(false);
+                      setVerificationInput("");
+                    }
+                  }}
+                  className={`px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm ${verificationInput.trim().toLowerCase() !== project.name.trim().toLowerCase() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={verificationInput.trim().toLowerCase() !== project.name.trim().toLowerCase()}
+                >Delete</button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
       <div
-        className="relative w-[180px] sm:w-[200px] h-[135px] sm:h-[150px] rounded-[5px]"
-        style={{
-          background: `linear-gradient(to bottom, ${colorScheme.gradient[0]}, ${colorScheme.gradient[1]})`,
-          boxShadow: isHovered
-            ? 'inset 0 1px 3px rgba(255,255,255,0.5), 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)'
-            : 'inset 0 1px 3px rgba(255,255,255,0.5), 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
-          transition: 'box-shadow 0.2s ease-in-out'
-        }}
+        className="relative w-full h-full cursor-pointer transition-all duration-200"
+        onClick={handleSelect}
+        style={{ maxWidth: 200, minHeight: 160 }}
       >
-        <div className="absolute inset-0 z-[-1] rounded-[10px]"></div>
-        <div className="p-2 sm:p-3 pt-4 sm:pt-5 h-full flex flex-col overflow-hidden">
-          <div className="block flex-grow overflow-hidden">
-            <h3 className="font-bold text-xs sm:text-sm text-white mb-1 truncate leading-tight">
+        {/* Folder Tab */}
+        <div
+          className="absolute -top-2 left-3 w-12 h-3 rounded-t-lg"
+          style={{ backgroundColor: baseColor }}
+        />
+        {/* Folder Body */}
+        <div
+          className="relative w-full h-full rounded-lg overflow-hidden"
+          style={{ backgroundColor: isHovered ? hoveredColor : baseColor, transition: 'background 0.2s', minHeight: 160, maxWidth: 200 }}
+        >
+          {/* Watermark for Approved Projects */}
+          {project.isWatermarked && (
+            <div 
+              className="absolute inset-0 flex items-center justify-center pointer-events-none"
+              style={{
+                transform: 'rotate(-25deg)',
+                opacity: 0.18,
+                zIndex: 1,
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <span 
+                className="whitespace-nowrap"
+                style={{
+                  fontSize: '2.2rem',
+                  fontWeight: 700,
+                  color: '#555',
+                  fontFamily: 'Arial, Helvetica, sans-serif',
+                  letterSpacing: '2px',
+                  textTransform: 'uppercase',
+                  lineHeight: 1,
+                }}
+              >
+                APPROVED
+              </span>
+            </div>
+          )}
+
+          {/* Project Info */}
+          <div className="p-3 relative z-10" style={{ paddingBottom: 36 }}>
+            <h3 className="text-white font-semibold text-sm mb-1 truncate">
               {project.name}
             </h3>
-            <div className="text-[10px] sm:text-xs text-white/90 space-y-0.5 sm:space-y-1">
-              <p className="truncate">{project.location}</p>
-              <p className="truncate">Budget: {project.budget}</p>
-              <p className="truncate text-[9px] sm:text-[10px] leading-tight">Period: {project.startDate} - {project.endDate}</p>
+            <p className="text-white/90 text-xs truncate mb-1">
+              {project.location}
+            </p>
+            <p className="text-white/90 text-xs truncate mb-1">
+              Budget: {project.budget}
+            </p>
+            <p className="text-white/90 text-xs truncate mb-1">
+              Period: {project.startDate} - {project.endDate}
+            </p>
+            <div className="flex justify-end mt-2">
+              <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                project.status === 'Completed' ? 'bg-white/30' : 
+                project.status === 'Approved' ? 'bg-white/40' : 
+                'bg-white/30'
+              } text-white`}>
+                {project.status}
+              </span>
             </div>
           </div>
-
-          <div className="flex justify-between items-center pt-2 border-t border-white/20 mt-auto">
-            <div className="text-xs text-white/80 truncate flex-1 mr-2">Owner: {user?.name || 'Abhishek U'}</div>
-            <div className="flex items-center flex-shrink-0">
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 text-white truncate max-w-[60px]">{project.status}</span>
-            </div>
+          {/* Line above owner */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.3)', width: '100%', position: 'absolute', left: 0, bottom: 28 }}></div>
+          {/* Owner at the bottom */}
+          <div style={{ position: 'absolute', left: 0, bottom: 4, width: '100%' }}>
+            <p className="text-white/90 text-xs truncate text-left px-3">Owner: {user?.name || 'User'}</p>
           </div>
-        </div>
-
-        {/* Hover actions - Always visible on mobile for better touch interaction */}
-        <div className={`absolute top-1 sm:top-2 right-1 sm:right-2 flex space-x-1 transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-100 sm:opacity-0'}`}>
-          <button
-            className="p-1.5 sm:p-1.5 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors touch-manipulation min-h-[32px] sm:min-h-auto"
-            onClick={handleDeleteClick}
-            aria-label={`Delete project ${project.name}`}
-            title="Delete project"
-          >
-            <Trash2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-          </button>
-          <button
-            onClick={handleEdit}
-            className="p-1.5 sm:p-1.5 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors touch-manipulation min-h-[32px] sm:min-h-auto"
-            aria-label={`Edit project ${project.name}`}
-            title="Edit project"
-          >
-            <Edit className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-          </button>
         </div>
       </div>
-
-      <ConfirmDialog
-        isOpen={showDeleteDialog}
-        onClose={() => setShowDeleteDialog(false)}
-        onConfirm={handleDelete}
-        title="Are you sure?"
-        description={`This will permanently delete the project "${project.name}" and all its contents. This action cannot be undone.`}
-      />
     </div>
   );
 };

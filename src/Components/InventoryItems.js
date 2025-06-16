@@ -1,15 +1,39 @@
 import React, { useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
+import DeleteVerificationDialog from "./DeleteVerificationDialog";
+
 const InventoryItems = (props) => {
   const { items, setItems, setSelectedItem, setItemSelected, selectedItem } =
     props;
   const { searchTerm, setSearchTerm, searchResults } = props;
 
   const [isPending, startTransition] = useTransition(); // Add useTransition
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
 
   const handleClear = () => {
     setSelectedItem({});
     setItemSelected(false);
+  };
+
+  const handleDeleteClick = (e, item) => {
+    e.stopPropagation();
+    setItemToDelete(item);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (itemToDelete) {
+      startTransition(() => {
+        const updatedItems = items
+          .filter((i) => i.id !== itemToDelete.id)
+          .map((item, index) => ({ ...item, id: index + 1 }));
+        setItems(updatedItems);
+        if (selectedItem.id === itemToDelete.id) {
+          handleClear();
+        }
+      });
+    }
   };
 
   return (
@@ -41,18 +65,7 @@ const InventoryItems = (props) => {
               <td className="px-2 sm:px-4 py-2 sm:py-3 justify-between flex items-center">
                 <span className="flex-1 truncate">{item.name}</span>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    startTransition(() => {
-                      const updatedItems = items
-                        .filter((i) => i.id !== item.id) // Remove the item with the matching ID
-                        .map((item, index) => ({ ...item, id: index + 1 })); // Reassign IDs sequentially
-                      setItems(updatedItems);
-                      if (selectedItem.id === item.id) {
-                        handleClear();
-                      }
-                    });
-                  }}
+                  onClick={(e) => handleDeleteClick(e, item)}
                 >
                   <Trash2 size={16} className="sm:w-5 sm:h-5" />
                 </button>
@@ -62,6 +75,18 @@ const InventoryItems = (props) => {
         </tbody>
       </table>
       {isPending && <p className="text-gray-500 text-xs sm:text-sm">Updating...</p>}
+
+      <DeleteVerificationDialog
+        isOpen={showDeleteDialog}
+        onClose={() => {
+          setShowDeleteDialog(false);
+          setItemToDelete(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        itemName={itemToDelete?.name || ''}
+        itemType="Item"
+        verificationText={itemToDelete?.name || ''}
+      />
     </div>
   );
 };

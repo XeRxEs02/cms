@@ -7,7 +7,8 @@ const AddProjectModal = ({ isOpen, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     name: '',
     startDate: '',
-    status: 'Planning'
+    status: 'Planning',
+    isWatermarked: false
   });
 
   const [errors, setErrors] = useState({});
@@ -18,7 +19,8 @@ const AddProjectModal = ({ isOpen, onClose, onSave }) => {
       setFormData({
         name: '',
         startDate: '',
-        status: 'Planning'
+        status: 'Planning',
+        isWatermarked: false
       });
       setErrors({});
     }
@@ -82,7 +84,8 @@ const AddProjectModal = ({ isOpen, onClose, onSave }) => {
         budget: '₹ 1.0 Cr', // Default budget
         startDate: formatDate(formData.startDate),
         endDate: formatDate(formData.startDate, 365), // Default to 1 year from start
-        color: randomColor
+        color: randomColor,
+        isWatermarked: formData.status === 'Approved'
       };
 
       onSave(newProject);
@@ -109,7 +112,7 @@ const AddProjectModal = ({ isOpen, onClose, onSave }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-sm sm:max-w-md max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-xs sm:max-w-md max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-2 sm:p-6">
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-6 border-b">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-800 flex items-center">
@@ -179,6 +182,7 @@ const AddProjectModal = ({ isOpen, onClose, onSave }) => {
               <option value="Planning">Planning</option>
               <option value="In Progress">In Progress</option>
               <option value="Completed">Completed</option>
+              <option value="Approved">Approved</option>
             </select>
           </div>
 

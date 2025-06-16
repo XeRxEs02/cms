@@ -1,18 +1,22 @@
-import React from 'react';
-import Toast from './Toast';
+import React, { useEffect } from 'react';
+import { useToastContext } from './ToastContext';
 
-const ToastContainer = ({ toasts, removeToast }) => {
-  return React.createElement('div', {
-    className: 'fixed top-4 right-4 z-50 flex flex-col items-end'
-  },
-    toasts.map((toast) =>
-      React.createElement(Toast, {
-        key: toast.id,
-        message: toast.message,
-        type: toast.type,
-        onClose: () => removeToast(toast.id)
-      })
-    )
+const ToastContainer = () => {
+  const { toast, removeToast } = useToastContext();
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => { removeToast(); }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast, removeToast]);
+
+  if (!toast) return null;
+
+  return (
+    <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 9999 }}>
+      {toast}
+    </div>
   );
 };
 

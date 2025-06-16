@@ -19,6 +19,7 @@ export const AppProvider = ({ children }) => {
       entries: [
         {
           no: "01",
+          drNo: "DR001",
           particulars: "Construction Material",
           date: "01/01/2025",
           amount: 700,
@@ -30,6 +31,7 @@ export const AppProvider = ({ children }) => {
         },
         {
           no: "02",
+          drNo: "DR002",
           particulars: "Sand",
           date: "01/01/2025",
           amount: 24000,
@@ -41,6 +43,7 @@ export const AppProvider = ({ children }) => {
         },
         {
           no: "03",
+          drNo: "DR003",
           particulars: "Sand",
           date: "01/01/2025",
           amount: 12000,

@@ -288,22 +288,25 @@ const ClientPayments = () => {
         <div className="flex justify-end gap-4 mb-4">
           <button 
             onClick={() => setIsAddModalOpen(true)}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center gap-2"
+            className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 flex items-center gap-2 min-w-[180px] justify-center"
           >
             <Plus size={18} />
             ADD PAYMENT
           </button>
           <button 
+            onClick={() => fileInputRef.current?.click()}
+            className="bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600 flex items-center gap-2 min-w-[180px] justify-center"
+          >
+            <Upload size={18} />
+            UPLOAD PLAN
+          </button>
+          <button 
             onClick={handleExportToExcel}
-            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center gap-2"
+            className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 flex items-center gap-2 min-w-[180px] justify-center"
           >
             <Download size={18} />
-            EXPORT TO EXCEL
+            EXPORT DATA
           </button>
-        </div>
-
-        {/* Upload Button */}
-        <div className="flex justify-end mb-4">
           <input
             type="file"
             ref={fileInputRef}
@@ -311,13 +314,6 @@ const ClientPayments = () => {
             accept=".xlsx,.xls"
             className="hidden"
           />
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 flex items-center gap-2"
-          >
-            <Upload size={18} />
-            UPLOAD PAYMENTS PLAN
-          </button>
         </div>
 
         {/* Payments Table */}

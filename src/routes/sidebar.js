@@ -46,11 +46,6 @@ const sidebarroutes = [
     icon: <HandCoins size={18} />,
     name: "Labour Payments",
   },
-  {
-    path: "/app/labourbill",
-    icon: <ReceiptIndianRupee size={18} />,
-    name: "Labour Bill",
-  },
 ];
 
 export default sidebarroutes;

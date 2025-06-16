@@ -1,58 +1,28 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import ToastContainer from './ToastContainer';
+import React, { createContext, useContext, useState } from 'react';
 
-const ToastContext = createContext(null);
+const ToastContext = createContext();
 
 export const ToastProvider = ({ children }) => {
-  const [toasts, setToasts] = useState([]);
+  const [toast, setToast] = useState(null);
 
-  const addToast = useCallback((message, type = 'info') => {
-    const id = Date.now();
-    setToasts(prev => [...prev, { id, message, type }]);
+  const showToast = (message, type) => {
+    // Remove any existing toast (so that only one is shown)
+    setToast(null);
+    // Then set the new toast (using a simple object with message and type)
+    setToast({ message, type });
+  };
 
-    // Auto remove after 3 seconds
-    setTimeout(() => {
-      removeToast(id);
-    }, 3000);
-  }, []);
+  const removeToast = () => {
+    setToast(null);
+  };
 
-  const removeToast = useCallback((id) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-  }, []);
-
-  const showSuccess = useCallback((message) => {
-    addToast(message, 'success');
-  }, [addToast]);
-
-  const showError = useCallback((message) => {
-    addToast(message, 'error');
-  }, [addToast]);
-
-  const showInfo = useCallback((message) => {
-    addToast(message, 'info');
-  }, [addToast]);
-
-  const showWarning = useCallback((message) => {
-    addToast(message, 'warning');
-  }, [addToast]);
-
-  return React.createElement(ToastContext.Provider, {
-    value: { showSuccess, showError, showInfo, showWarning }
-  },
-    children,
-    React.createElement(ToastContainer, {
-      toasts,
-      removeToast
-    })
+  return (
+    <ToastContext.Provider value={{ toast, showToast, removeToast }}>
+      {children}
+    </ToastContext.Provider>
   );
 };
 
-export const useToast = () => {
-  const context = useContext(ToastContext);
-  if (!context) {
-    throw new Error('useToast must be used within a ToastProvider');
-  }
-  return context;
-};
+export const useToastContext = () => useContext(ToastContext);
 
 export default ToastContext; 

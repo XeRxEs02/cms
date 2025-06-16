@@ -6,7 +6,6 @@ const Billing = lazy(() => import("../Pages/Billing.js"));
 const Indent = lazy(() => import("../Pages/Indent.js"));
 const Dashboard = lazy(() => import("../Pages/Dashboard.js"));
 const WOListing = lazy(() => import("../Pages/WOListing.js"));
-const LabourBill = lazy(() => import("../Pages/LabourBill.js"));
 const LabourPayments = lazy(() => import("../Pages/LabourPayment.js"));
 const ClientPayments = lazy(() => import("../Pages/ClientPayments.js"));
 const AddClientPayment = lazy(() => import("../Pages/AddClientPayment.js"));
@@ -58,10 +57,6 @@ const pageroutes = [
     component: Indent,
   },
   {
-    path: "/app/project/:projectId/labourbill",
-    component: LabourBill,
-  },
-  {
     path: "/app/project/:projectId/labourpayments",
     component: LabourPayments,
   },
@@ -72,10 +67,6 @@ const pageroutes = [
   {
     path: "/app/dwa/wo",
     component: WOListing,
-  },
-  {
-    path: "/app/labourbill",
-    component: LabourBill,
   },
   {
     path: "/app/labourpayments",

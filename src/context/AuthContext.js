@@ -40,19 +40,16 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  // Login function
+  // Login function with hardcoded admin credentials
   const login = (email, password) => {
-    // In a real app, you would validate credentials against a backend
-    // For this demo, we'll accept specific credentials
-    if (email === "admin@sbpatil.com" && password === "admin123") {
-      // Create user object
+    // Hardcoded admin credentials
+    if (email === "admin" && password === "admin") {
       const userData = {
-        name: 'Abhishek U',
-        email: email,
+        name: 'Admin',
+        email: 'admin',
         role: 'Admin'
       };
 
-      // Store authentication state and user data
       localStorage.setItem('isAuthenticated', 'true');
       localStorage.setItem('userData', JSON.stringify(userData));
 
