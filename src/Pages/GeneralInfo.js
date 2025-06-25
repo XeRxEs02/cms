@@ -1,5 +1,21 @@
-import React from "react";
+import React, { useState } from "react";
+import { useClientContext } from '../context/ClientContext';
+import { useProject } from '../context/ProjectContext';
+
 const InformationTables = () => {
+  const { clientList } = useClientContext();
+  const { selectedProject } = useProject();
+
+  // Modal state
+  const [isGeneralInfoModalOpen, setIsGeneralInfoModalOpen] = useState(false);
+  const [isRateListModalOpen, setIsRateListModalOpen] = useState(false);
+
+  // Find the client for the selected project
+  let clientInfo = null;
+  if (selectedProject) {
+    clientInfo = clientList.find(client => (client.projects || []).includes(selectedProject.name));
+  }
+
   return (
     <div className="bg-gradient-to-b from-gray-200 to-gray-400 p-6 min-h-screen">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -10,10 +26,11 @@ const InformationTables = () => {
               General Information
             </h2>
             <button
-              className="bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded"
+              className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded"
               type="button"
+              onClick={() => setIsGeneralInfoModalOpen(true)}
             >
-              Add General Information
+              General Information List
             </button>
           </div>
 
@@ -37,6 +54,18 @@ const InformationTables = () => {
             </tbody>
           </table>
         </section>
+        {/* General Info Modal */}
+        {isGeneralInfoModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Edit General Information</h2>
+                <button onClick={() => setIsGeneralInfoModalOpen(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+              </div>
+              <div className="text-gray-700">(General Information editing form goes here)</div>
+            </div>
+          </div>
+        )}
 
         {/* Rate List Section */}
         <section className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -45,8 +74,9 @@ const InformationTables = () => {
             <button
               className="bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded"
               type="button"
+              onClick={() => setIsRateListModalOpen(true)}
             >
-              Add Rate List
+              Rate List
             </button>
           </div>
 
@@ -69,6 +99,18 @@ const InformationTables = () => {
             </tbody>
           </table>
         </section>
+        {/* Rate List Modal */}
+        {isRateListModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Edit Rate List</h2>
+                <button onClick={() => setIsRateListModalOpen(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+              </div>
+              <div className="text-gray-700">(Rate List editing form goes here)</div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

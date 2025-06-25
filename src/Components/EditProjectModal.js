@@ -206,12 +206,6 @@ const EditProjectModal = ({ isOpen, onClose, onSave, project }) => {
                 <option value="Approved">Approved</option>
               </select>
             </div>
-            <div className="flex-1 w-full">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Owner</label>
-              <div className="px-3 py-3 border border-gray-300 rounded-md bg-gray-50 text-base">
-                {project?.owner || 'N/A'}
-              </div>
-            </div>
           </div>
 
           {/* Action Buttons */}

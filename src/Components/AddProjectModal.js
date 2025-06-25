@@ -78,7 +78,6 @@ const AddProjectModal = ({ isOpen, onClose, onSave }) => {
       const newProject = {
         id: Date.now(), // Simple ID generation
         name: formData.name,
-        location: 'New Location', // Default location
         status: formData.status,
         completion: formData.status === 'Planning' ? 0 : formData.status === 'Completed' ? 100 : 5,
         budget: '₹ 1.0 Cr', // Default budget

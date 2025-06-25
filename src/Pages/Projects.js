@@ -7,13 +7,15 @@ import { useToast } from "../context/ToastContext";
 import ProjectCard from "../Components/ProjectCard";
 import EditProjectModal from "../Components/EditProjectModal";
 import AddProjectModal from "../Components/AddProjectModal";
+import AddClientModal from '../Pages/Indent'; // or the correct path if AddClientModal is exported separately
+import AddUserModal from '../Components/AddUserModal';
+import { ClientProvider, useClientContext } from '../context/ClientContext';
 
 // Mock project data - in a real application, this would come from an API
 const projectsData = [
   {
     id: 1,
     name: "Residential Complex - Phase 1",
-    location: "Bangalore",
     status: "Active",
     completion: 45,
     budget: "₹ 2.5 Cr",
@@ -24,7 +26,6 @@ const projectsData = [
   {
     id: 2,
     name: "Commercial Tower",
-    location: "Mumbai",
     status: "Active",
     completion: 30,
     budget: "₹ 5.8 Cr",
@@ -35,7 +36,6 @@ const projectsData = [
   {
     id: 3,
     name: "Highway Extension",
-    location: "Delhi",
     status: "Active",
     completion: 10,
     budget: "₹ 12.2 Cr",
@@ -46,7 +46,6 @@ const projectsData = [
   {
     id: 4,
     name: "Hospital Building",
-    location: "Chennai",
     status: "Completed",
     completion: 100,
     budget: "₹ 3.7 Cr",
@@ -57,7 +56,6 @@ const projectsData = [
   {
     id: 5,
     name: "Shopping Mall",
-    location: "Hyderabad",
     status: "Active",
     completion: 60,
     budget: "₹ 8.1 Cr",
@@ -68,7 +66,6 @@ const projectsData = [
   {
     id: 6,
     name: "IT Park",
-    location: "Pune",
     status: "Active",
     completion: 5,
     budget: "₹ 15.5 Cr",
@@ -78,10 +75,10 @@ const projectsData = [
   }
 ];
 
-const Projects = () => {
+const ProjectsPage = () => {
   const navigate = useNavigate();
   const { isAuthenticated, logout, user } = useAuth();
-  const { selectProject } = useProject();
+  const { selectProject, selectedProject } = useProject();
   const { showSuccess, showError, showInfo } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [projects, setProjects] = useState(projectsData);
@@ -90,6 +87,11 @@ const Projects = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [deletingProjectId, setDeletingProjectId] = useState(null);
+  const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
+  const [clientList, setClientList] = useState([]);
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const { addOrUpdateClient } = useClientContext();
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -105,8 +107,7 @@ const Projects = () => {
     // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(project =>
-        project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        project.location.toLowerCase().includes(searchTerm.toLowerCase())
+        project.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -176,6 +177,32 @@ const Projects = () => {
     navigate("/login"); // Navigate to login page
   };
 
+  const handleAddClient = (client) => {
+    setClientList((prev) => [...prev, client]);
+  };
+
+  const handleAddUser = (userData) => {
+    if (userData.authorisation === 'Client') {
+      if (!userData.projects || userData.projects.length === 0) {
+        showError('Please select at least one project for the client user.');
+        return;
+      }
+      const newClient = {
+        clientName: userData.user,
+        projectNo: '',
+        labourContractor: '',
+        address: '',
+        totalBudget: '',
+        projects: userData.projects
+      };
+      addOrUpdateClient(newClient);
+      setTimeout(() => {
+        console.log('DEBUG: newClient.projects:', newClient.projects);
+      }, 500);
+    }
+    showSuccess('User added successfully!');
+  };
+
   return (
     <>
       {/* Navbar Section */}
@@ -185,14 +212,23 @@ const Projects = () => {
             <div className="text-lg sm:text-xl md:text-2xl font-bold text-white truncate pr-4">
               {getGreeting()} {user?.name || 'User'}!
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors text-xs sm:text-sm font-medium min-w-0 flex-shrink-0"
-              aria-label="Logout"
-            >
-              <span className="hidden xs:inline sm:inline">Logout</span>
-              <span className="xs:hidden sm:hidden">Exit</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsAddUserModalOpen(true)}
+                className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors text-xs sm:text-sm font-medium min-w-0 flex-shrink-0"
+                aria-label="Add User"
+              >
+                Add User
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors text-xs sm:text-sm font-medium min-w-0 flex-shrink-0"
+                aria-label="Logout"
+              >
+                <span className="hidden xs:inline sm:inline">Logout</span>
+                <span className="xs:hidden sm:hidden">Exit</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -244,14 +280,22 @@ const Projects = () => {
           </div>
 
           {/* Projects Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-4 gap-x-0">
             {filteredProjects.map((project) => (
-              <div key={project.id} className="flex justify-center w-full max-w-[280px] sm:max-w-[250px]">
+              <div key={project.id} className="flex justify-center w-full max-w-[280px] sm:max-w-[250px] py-2">
                 <ProjectCard
                   project={project}
                   onSelect={handleProjectSelect}
-                  onDelete={handleProjectDelete}
-                  onEdit={handleProjectEdit}
+                  onDelete={(id) => {
+                    handleProjectDelete(id);
+                    setDeletingProjectId(null);
+                  }}
+                  onEdit={(proj) => {
+                    handleProjectEdit(proj);
+                    setDeletingProjectId(null);
+                  }}
+                  deletingProjectId={deletingProjectId}
+                  setDeletingProjectId={setDeletingProjectId}
                 />
               </div>
             ))}
@@ -282,8 +326,22 @@ const Projects = () => {
         onClose={() => setAddModalOpen(false)}
         onSave={handleProjectAdd}
       />
+
+      <AddClientModal
+        isOpen={isAddClientModalOpen}
+        onClose={() => setIsAddClientModalOpen(false)}
+        onAdd={handleAddClient}
+        existingClients={clientList.map(c => c.clientName)}
+      />
+
+      <AddUserModal
+        isOpen={isAddUserModalOpen}
+        onClose={() => setIsAddUserModalOpen(false)}
+        onAdd={handleAddUser}
+        projects={projects}
+      />
     </>
   );
 };
 
-export default Projects;
+export default ProjectsPage;

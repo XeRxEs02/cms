@@ -5,9 +5,19 @@ import { useAppContext } from '../context/AppContext';
 const AddDailyReportModal = ({ isOpen, onClose, onAdd }) => {
   const { appData } = useAppContext();
   
-  // Get unique particulars from daily report entries for dropdown
+  // Get all particulars from localStorage (Inventory) and daily report
+  let allParticulars = [];
+  try {
+    const saved = localStorage.getItem('allParticulars');
+    if (saved) {
+      allParticulars = JSON.parse(saved).map(p => p.particulars);
+    }
+  } catch (e) { allParticulars = []; }
   const uniqueParticulars = Array.from(
-    new Set(appData.dailyReport.entries.map(entry => entry.particulars))
+    new Set([
+      ...allParticulars,
+      ...appData.dailyReport.entries.map(entry => entry.particulars)
+    ])
   ).sort();
 
   // Function to generate next DR number

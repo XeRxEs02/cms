@@ -15,8 +15,34 @@ import { AppProvider } from './context/AppContext';
 import LoadingSpinner from './Components/common/LoadingSpinner';
 import { LoadingBar } from './Components/common/LoadingSpinner';
 import { AnimatePresence } from 'framer-motion';
+import { ClientProvider } from './context/ClientContext';
 
 const Login = lazy(() => import("./Pages/Login.js"));
+
+// ErrorBoundary for catching lazy load errors
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    // You can log error info here if needed
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 40, color: 'red', textAlign: 'center' }}>
+          <h2>Something went wrong while loading this page.</h2>
+          <pre>{this.state.error?.message || String(this.state.error)}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function App() {
   return React.createElement(
@@ -35,38 +61,46 @@ function App() {
             ToastProvider,
             null,
             React.createElement(
-              Router,
+              ClientProvider,
               null,
-              React.createElement(LoadingBar, null),
               React.createElement(
-                AnimatePresence,
-                { mode: "wait" },
+                Router,
+                null,
+                React.createElement(LoadingBar, null),
                 React.createElement(
-                  Suspense,
-                  { fallback: React.createElement(LoadingSpinner) },
+                  AnimatePresence,
+                  { mode: "wait" },
                   React.createElement(
-                    Routes,
+                    ErrorBoundary,
                     null,
-                    React.createElement(Route, {
-                      path: "/login",
-                      element: React.createElement(Login)
-                    }),
-                    React.createElement(Route, {
-                      path: "/",
-                      element: React.createElement(Navigate, { to: "/login", replace: true })
-                    }),
-                    React.createElement(Route, {
-                      path: "/app/*",
-                      element: React.createElement(
-                        ProtectedRoute,
+                    React.createElement(
+                      Suspense,
+                      { fallback: React.createElement(LoadingSpinner) },
+                      React.createElement(
+                        Routes,
                         null,
-                        React.createElement(Layout)
+                        React.createElement(Route, {
+                          path: "/login",
+                          element: React.createElement(Login)
+                        }),
+                        React.createElement(Route, {
+                          path: "/",
+                          element: React.createElement(Navigate, { to: "/login", replace: true })
+                        }),
+                        React.createElement(Route, {
+                          path: "/app/*",
+                          element: React.createElement(
+                            ProtectedRoute,
+                            null,
+                            React.createElement(Layout)
+                          )
+                        }),
+                        React.createElement(Route, {
+                          path: "*",
+                          element: React.createElement(Navigate, { to: "/login", replace: true })
+                        })
                       )
-                    }),
-                    React.createElement(Route, {
-                      path: "*",
-                      element: React.createElement(Navigate, { to: "/login", replace: true })
-                    })
+                    )
                   )
                 )
               )

@@ -10,6 +10,8 @@ const LabourPayments = lazy(() => import("../Pages/LabourPayment.js"));
 const ClientPayments = lazy(() => import("../Pages/ClientPayments.js"));
 const AddClientPayment = lazy(() => import("../Pages/AddClientPayment.js"));
 const Projects = lazy(() => import("../Pages/Projects.js"));
+const MaterialTrackingDetails = lazy(() => import("../Pages/MaterialTrackingDetails.js"));
+const GeneralInfo = lazy(() => import("../Pages/GeneralInfo.js"));
 
 const pageroutes = [
   {
@@ -30,7 +32,7 @@ const pageroutes = [
   },
   {
     path: "/app/generalinfo",
-    component: Indent,
+    component: GeneralInfo,
   },
   {
     path: "/app/dashboard",
@@ -54,7 +56,7 @@ const pageroutes = [
   },
   {
     path: "/app/project/:projectId/generalinfo",
-    component: Indent,
+    component: GeneralInfo,
   },
   {
     path: "/app/project/:projectId/labourpayments",
@@ -87,6 +89,10 @@ const pageroutes = [
   {
     path: "/app/project/:projectId/clientpayments/add",
     component: AddClientPayment,
-  }
+  },
+  {
+    path: "material-tracking/:particularName",
+    component: MaterialTrackingDetails,
+  },
 ];
 export default pageroutes;

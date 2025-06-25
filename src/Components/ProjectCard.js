@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from "react";
 import { Edit, Trash2, X } from "lucide-react";
 import DeleteVerificationDialog from "./DeleteVerificationDialog";
 import { useAuth } from "../context/AuthContext";
+import { getProjectDashboardData } from '../services/dashboardDataService';
 
-const ProjectCard = ({ project, onSelect, onDelete, onEdit }) => {
+const ProjectCard = ({ project, onSelect, onDelete, onEdit, deletingProjectId, setDeletingProjectId }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [showVerifyPopup, setShowVerifyPopup] = useState(false);
@@ -11,6 +12,9 @@ const ProjectCard = ({ project, onSelect, onDelete, onEdit }) => {
   const { user } = useAuth();
   const deleteBtnRef = useRef(null);
   const popupRef = useRef(null);
+
+  // Get dashboard data for this project
+  const dashboardData = getProjectDashboardData(project)?.dashboardData;
 
   const handleDelete = () => {
     // Call the onDelete prop if it exists
@@ -24,6 +28,7 @@ const ProjectCard = ({ project, onSelect, onDelete, onEdit }) => {
   const handleDeleteClick = (e) => {
     e.stopPropagation();
     setShowDeletePopup(true);
+    if (setDeletingProjectId) setDeletingProjectId(project.id);
   };
 
   const handleEdit = (e) => {
@@ -56,6 +61,8 @@ const ProjectCard = ({ project, onSelect, onDelete, onEdit }) => {
   const baseColor = project.color || '#7BAFD4';
   const hoveredColor = darkenColor(baseColor, 0.12); // 12% darker
 
+  const isOtherCardOpaque = deletingProjectId && deletingProjectId !== project.id;
+
   // Close popups if clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
@@ -79,7 +86,7 @@ const ProjectCard = ({ project, onSelect, onDelete, onEdit }) => {
 
   return (
     <div
-      className="relative w-full max-w-xs sm:max-w-sm min-w-0 h-full"
+      className={`relative w-full max-w-xs sm:max-w-sm min-w-0 h-full ${isOtherCardOpaque ? 'opacity-40 pointer-events-none' : ''}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{ maxWidth: 200, minHeight: 160, transition: 'transform 0.2s ease', transform: isHovered ? 'scale(1.05)' : 'scale(1)' }}
@@ -114,6 +121,7 @@ const ProjectCard = ({ project, onSelect, onDelete, onEdit }) => {
               setShowDeletePopup(false);
               setShowVerifyPopup(false);
               setVerificationInput("");
+              if (setDeletingProjectId) setDeletingProjectId(null);
             }}
           />
           {/* Step 1: Are you sure? Popup */}
@@ -121,12 +129,12 @@ const ProjectCard = ({ project, onSelect, onDelete, onEdit }) => {
             <div ref={popupRef} className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-64">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold text-gray-900">Are you sure?</span>
-                <button onClick={() => setShowDeletePopup(false)} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
+                <button onClick={() => { setShowDeletePopup(false); if (setDeletingProjectId) setDeletingProjectId(null); }} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
               </div>
               <div className="text-gray-700 text-sm mb-4">Do you want to delete the project "{project.name}"?</div>
               <div className="flex justify-end gap-2">
                 <button
-                  onClick={() => setShowDeletePopup(false)}
+                  onClick={() => { setShowDeletePopup(false); if (setDeletingProjectId) setDeletingProjectId(null); }}
                   className="px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
                 >No</button>
                 <button
@@ -141,7 +149,7 @@ const ProjectCard = ({ project, onSelect, onDelete, onEdit }) => {
             <div ref={popupRef} className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-72">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold text-gray-900">Confirm Deletion</span>
-                <button onClick={() => { setShowVerifyPopup(false); setVerificationInput(""); }} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
+                <button onClick={() => { setShowVerifyPopup(false); setVerificationInput(""); if (setDeletingProjectId) setDeletingProjectId(null); }} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
               </div>
               <div className="text-gray-700 text-sm mb-3">To confirm deletion, type the project name:</div>
               <div className="font-semibold text-gray-800 mb-2">{project.name}</div>
@@ -154,7 +162,7 @@ const ProjectCard = ({ project, onSelect, onDelete, onEdit }) => {
               />
               <div className="flex justify-end gap-2">
                 <button
-                  onClick={() => { setShowVerifyPopup(false); setVerificationInput(""); }}
+                  onClick={() => { setShowVerifyPopup(false); setVerificationInput(""); if (setDeletingProjectId) setDeletingProjectId(null); }}
                   className="px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
                 >Cancel</button>
                 <button
@@ -163,6 +171,7 @@ const ProjectCard = ({ project, onSelect, onDelete, onEdit }) => {
                       handleDelete();
                       setShowVerifyPopup(false);
                       setVerificationInput("");
+                      if (setDeletingProjectId) setDeletingProjectId(null);
                     }
                   }}
                   className={`px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm ${verificationInput.trim().toLowerCase() !== project.name.trim().toLowerCase() ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -226,29 +235,27 @@ const ProjectCard = ({ project, onSelect, onDelete, onEdit }) => {
               {project.name}
             </h3>
             <p className="text-white/90 text-xs truncate mb-1">
-              {project.location}
-            </p>
-            <p className="text-white/90 text-xs truncate mb-1">
-              Budget: {project.budget}
+              Budget: ₹{dashboardData?.budgetSpent?.total?.toLocaleString() || 'N/A'}
             </p>
             <p className="text-white/90 text-xs truncate mb-1">
               Period: {project.startDate} - {project.endDate}
             </p>
-            <div className="flex justify-end mt-2">
-              <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                project.status === 'Completed' ? 'bg-white/30' : 
-                project.status === 'Approved' ? 'bg-white/40' : 
-                'bg-white/30'
-              } text-white`}>
-                {project.status}
-              </span>
-            </div>
+          </div>
+          {/* Status Indicator at bottom right */}
+          <div className="absolute bottom-8 right-3 z-20">
+            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+              project.status === 'Completed' ? 'bg-white/30' : 
+              project.status === 'Approved' ? 'bg-white/40' : 
+              'bg-white/30'
+            } text-white`}>
+              {project.status}
+            </span>
           </div>
           {/* Line above owner */}
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.3)', width: '100%', position: 'absolute', left: 0, bottom: 28 }}></div>
           {/* Owner at the bottom */}
           <div style={{ position: 'absolute', left: 0, bottom: 4, width: '100%' }}>
-            <p className="text-white/90 text-xs truncate text-left px-3">Owner: {user?.name || 'User'}</p>
+            <p className="text-white/90 text-xs truncate text-left px-3">Owner: {project.owner || user?.name || 'User'}</p>
           </div>
         </div>
       </div>

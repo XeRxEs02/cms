@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import Navbar from "../Components/Navbar";
 import ItemDetailsModal from "../Components/ItemDetailsModal";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   BarChart3,
   CircleDollarSign,
@@ -20,11 +20,12 @@ import { useToast } from "../context/ToastContext";
 
 const Inventory = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { appData, updateDailyReport } = useAppContext();
   const { showSuccess, showInfo, showError } = useToast();
 
   // State for active tab
-  const [activeTab, setActiveTab] = useState("Material Flow");
+  const [activeTab, setActiveTab] = useState("Material Tracking List");
 
   // State for item details modal
   const [showItemDetailsModal, setShowItemDetailsModal] = useState(false);
@@ -36,6 +37,24 @@ const Inventory = () => {
 
   // State for add particular modal
   const [showAddParticularModal, setShowAddParticularModal] = useState(false);
+
+  // Add state for fetched daily report data
+  const [fetchedParticularData, setFetchedParticularData] = useState(null);
+
+  // Add this state to track all particulars
+  const [allParticulars, setAllParticulars] = useState(() => {
+    // Try to load from localStorage for persistence
+    const saved = localStorage.getItem('allParticulars');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Update localStorage whenever allParticulars changes
+  React.useEffect(() => {
+    localStorage.setItem('allParticulars', JSON.stringify(allParticulars));
+  }, [allParticulars]);
+
+  // Add state for selected particular
+  const [selectedParticular, setSelectedParticular] = useState(null);
 
   // Function to generate next DR number
   const getNextDRNumber = () => {
@@ -389,6 +408,28 @@ const Inventory = () => {
     }
   };
 
+  // Helper to get all transactions for a particular
+  const getTransactionsForParticular = (particular) =>
+    appData.dailyReport.entries.filter(
+      en => en.particulars.toLowerCase() === particular.toLowerCase()
+    );
+
+  // Helper to compute analytics for a particular
+  const getAnalyticsForParticular = (particular) => {
+    const txns = getTransactionsForParticular(particular);
+    let totalReceived = 0, totalConsumed = 0;
+    txns.forEach(txn => {
+      if (txn.received) totalReceived += Number(txn.received);
+      if (txn.consumed) totalConsumed += Number(txn.consumed);
+      // fallback for amount/paid if used
+      if (txn.amount && !txn.received) totalReceived += Number(txn.amount);
+      if (txn.paid && !txn.consumed) totalConsumed += Number(txn.paid);
+    });
+    const totalEstimated = 100; // TODO: Replace with actual estimate if available
+    const remaining = totalReceived - totalConsumed;
+    return { totalReceived, totalConsumed, totalEstimated, remaining };
+  };
+
   return (
     <>
       <Navbar currentPath={location.pathname} icon={Package} />
@@ -396,6 +437,16 @@ const Inventory = () => {
         {/* Tab Navigation */}
         <div className="border-b border-slate-200 mb-4">
           <div className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab("Material Tracking List")}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === "Material Tracking List"
+                  ? "border-[#7BAFD4] text-[#7BAFD4]"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              Material Tracking List
+            </button>
             <button
               onClick={() => setActiveTab("Material Flow")}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
@@ -405,16 +456,6 @@ const Inventory = () => {
               }`}
             >
               Material Flow
-            </button>
-            <button
-              onClick={() => setActiveTab("Inventory List")}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === "Inventory List"
-                  ? "border-[#7BAFD4] text-[#7BAFD4]"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              Inventory List
             </button>
           </div>
         </div>
@@ -593,12 +634,12 @@ const Inventory = () => {
         )}
 
         {/* Inventory List Tab */}
-        {activeTab === "Inventory List" && (
+        {activeTab === "Material Tracking List" && (
           <div className="p-3 sm:p-4 md:p-6">
             <div className="bg-white rounded-lg shadow-md border border-gray-200">
               <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Inventory List</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Material Flow</h3>
                   <p className="text-sm text-gray-600">Latest inventory transactions grouped by particulars</p>
                 </div>
                 <button
@@ -625,51 +666,61 @@ const Inventory = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {getGroupedTransactions().map((item) => (
-                      <tr key={item.particulars} className="text-sm hover:bg-gray-50">
-                        <td className="px-6 py-4 text-[#2C3E50]">{item.drNo}</td>
-                        <td className="px-6 py-4">
-                          <div
-                            className="flex items-center cursor-pointer hover:bg-blue-50 rounded-md p-1 transition-colors"
-                            onClick={() => handleParticularsClick(item)}
-                            title="Click to view item details"
-                          >
-                            <div className="w-2 h-2 bg-[#7BAFD4] rounded-full mr-2"></div>
-                            <span className="text-[#7BAFD4] hover:text-[#6B9FD4]">
-                              {item.particulars}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-[#4A5568]">{item.date}</td>
-                        <td className="px-6 py-4 text-[#2C3E50]">₹{item.amount}</td>
-                        <td className="px-6 py-4 text-[#2C3E50]">₹{item.paid}</td>
-                        <td className="px-6 py-4 text-[#2C3E50]">₹{item.balance}</td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              item.balance === 0
-                                ? 'bg-green-100 text-green-600'
-                                : item.paid > 0
-                                ? 'bg-yellow-100 text-yellow-600'
-                                : 'bg-red-100 text-red-600'
-                            }`}
-                          >
-                            {item.balance === 0 ? 'Paid' : item.paid > 0 ? 'Partial' : 'Pending'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleUpdateClick(item)}
-                              className="p-1 text-[#7BAFD4] hover:text-[#6B9FD4] rounded-md hover:bg-blue-50 transition-colors"
-                              title="Update item"
+                    {allParticulars.map((p) => {
+                      // Find entry in daily report
+                      const entry = appData.dailyReport.entries.find(
+                        en => en.particulars.toLowerCase() === p.particulars.toLowerCase()
+                      );
+                      return (
+                        <tr key={p.particulars} className="text-sm hover:bg-gray-50">
+                          <td className="px-6 py-4 text-[#2C3E50]">{p.drNo}</td>
+                          <td className="px-6 py-4">
+                            <div
+                              className="flex items-center cursor-pointer hover:bg-blue-50 rounded-md p-1 transition-colors"
+                              onClick={() => entry && navigate(`/app/material-tracking/${encodeURIComponent(p.particulars)}`)}
+                              title={entry ? "Click to view item details" : "No details yet"}
                             >
-                              <Edit2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              <div className="w-2 h-2 bg-[#7BAFD4] rounded-full mr-2"></div>
+                              <span className="text-[#7BAFD4] hover:text-[#6B9FD4]">
+                                {p.particulars}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-[#4A5568]">{entry ? entry.date : ''}</td>
+                          <td className="px-6 py-4 text-[#2C3E50]">{entry ? `₹${entry.amount}` : ''}</td>
+                          <td className="px-6 py-4 text-[#2C3E50]">{entry ? `₹${entry.paid}` : ''}</td>
+                          <td className="px-6 py-4 text-[#2C3E50]">{entry ? `₹${entry.balance}` : ''}</td>
+                          <td className="px-6 py-4">
+                            {entry ? (
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  entry.balance === 0
+                                    ? 'bg-green-100 text-green-600'
+                                    : entry.paid > 0
+                                    ? 'bg-yellow-100 text-yellow-600'
+                                    : 'bg-red-100 text-red-600'
+                                }`}
+                              >
+                                {entry.balance === 0 ? 'Paid' : entry.paid > 0 ? 'Partial' : 'Pending'}
+                              </span>
+                            ) : ''}
+                          </td>
+                          <td className="px-6 py-4">
+                            {entry && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleUpdateClick(entry)}
+                                  className="p-1 text-[#7BAFD4] hover:text-[#6B9FD4] rounded-md hover:bg-blue-50 transition-colors"
+                                  title="Update item"
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                   <tfoot className="bg-gray-50 font-semibold">
                     <tr>
@@ -710,11 +761,11 @@ const Inventory = () => {
 
       {/* Add Particular Modal */}
       <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${showAddParticularModal ? '' : 'hidden'}`}>
-        <div className="bg-white rounded-lg w-full max-w-2xl p-6">
+        <div className="bg-white rounded-lg w-full max-w-md p-6">
           <div className="flex justify-between items-center mb-6">
             <div>
               <h2 className="text-xl font-semibold text-[#2C3E50]">Add New Particular</h2>
-              <p className="text-sm text-gray-600">Enter the details for the new particular</p>
+              <p className="text-sm text-gray-600">Enter the name for the new particular. It will appear in the Material Flow list once it is added to the Daily Report.</p>
             </div>
             <button
               onClick={() => setShowAddParticularModal(false)}
@@ -724,99 +775,32 @@ const Inventory = () => {
             </button>
           </div>
 
-          <form onSubmit={(e) => {
+          <form onSubmit={e => {
             e.preventDefault();
-            handleAddParticular(newParticular);
+            if (!newParticular.particulars.trim()) {
+              showError('Please enter a particular name.');
+              return;
+            }
+            // Add to allParticulars if not already present
+            if (!allParticulars.some(p => p.particulars.toLowerCase() === newParticular.particulars.toLowerCase())) {
+              setAllParticulars([
+                ...allParticulars,
+                { drNo: getNextDRNumber(), particulars: newParticular.particulars }
+              ]);
+            }
+            setShowAddParticularModal(false);
+            showSuccess('Particular name added! Now add it to the Daily Report to see full details.');
+            setNewParticular({ ...newParticular, particulars: '' });
           }} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  DR. No
-                  <span className="text-xs text-gray-500 ml-1">(Auto-generated)</span>
-                </label>
-                <input
-                  type="text"
-                  value={newParticular.drNo}
-                  readOnly
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Particulars</label>
-                <input
-                  type="text"
-                  value={newParticular.particulars}
-                  onChange={(e) => setNewParticular({ ...newParticular, particulars: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#7BAFD4]"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input
-                  type="date"
-                  value={newParticular.date}
-                  onChange={(e) => setNewParticular({ ...newParticular, date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#7BAFD4]"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
-                <input
-                  type="number"
-                  value={newParticular.amount}
-                  onChange={(e) => {
-                    const amount = e.target.value;
-                    const paid = parseFloat(newParticular.paid) || 0;
-                    setNewParticular({
-                      ...newParticular,
-                      amount,
-                      balance: (parseFloat(amount) - paid).toString()
-                    });
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#7BAFD4]"
-                  required
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Paid</label>
-                <input
-                  type="number"
-                  value={newParticular.paid}
-                  onChange={(e) => {
-                    const paid = e.target.value;
-                    const amount = parseFloat(newParticular.amount) || 0;
-                    setNewParticular({
-                      ...newParticular,
-                      paid,
-                      balance: (amount - parseFloat(paid)).toString()
-                    });
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#7BAFD4]"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Balance</label>
-                <input
-                  type="number"
-                  value={newParticular.balance}
-                  readOnly
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
-                />
-              </div>
-            </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
-              <textarea
-                value={newParticular.remarks}
-                onChange={(e) => setNewParticular({ ...newParticular, remarks: e.target.value })}
-                rows="3"
+              <label className="block text-sm font-medium text-gray-700 mb-1">Particular Name</label>
+              <input
+                type="text"
+                value={newParticular.particulars}
+                onChange={e => setNewParticular({ ...newParticular, particulars: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#7BAFD4]"
+                required
+                placeholder="Enter new particular name"
               />
             </div>
             <div className="flex justify-end gap-2">
@@ -839,6 +823,90 @@ const Inventory = () => {
           </form>
         </div>
       </div>
+
+      {/* Selected Particular Details */}
+      {selectedParticular && (
+        <>
+          {/* Back button */}
+          <button onClick={() => setSelectedParticular(null)} className="mb-4 px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">&larr; Back</button>
+          {/* Analytics cards for selected particular with progress bars */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            {(() => {
+              const a = getAnalyticsForParticular(selectedParticular);
+              return [
+                <div key="consumed" className="bg-[#7BAFD4] rounded-md p-4 text-center text-white">
+                  <div className="text-lg font-bold">Total Consumed / Total Estimated</div>
+                  <div className="text-2xl font-bold my-2">{a.totalConsumed}/{a.totalEstimated}</div>
+                  <div className="w-full bg-white rounded-full h-3 mt-2">
+                    <div
+                      className="bg-red-500 h-3 rounded-full"
+                      style={{ width: `${(a.totalConsumed / a.totalEstimated) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>,
+                <div key="received" className="bg-[#7BAFD4] rounded-md p-4 text-center text-white">
+                  <div className="text-lg font-bold">Total Received / Total Estimated</div>
+                  <div className="text-2xl font-bold my-2">{a.totalReceived}/{a.totalEstimated}</div>
+                  <div className="w-full bg-white rounded-full h-3 mt-2">
+                    <div
+                      className="bg-green-500 h-3 rounded-full"
+                      style={{ width: `${(a.totalReceived / a.totalEstimated) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>,
+                <div key="remaining" className="bg-[#7BAFD4] rounded-md p-4 text-center text-white">
+                  <div className="text-lg font-bold">Remaining In Stock</div>
+                  <div className="text-2xl font-bold my-2">{a.remaining}</div>
+                  <div className="w-full bg-white rounded-full h-3 mt-2">
+                    <div
+                      className="bg-blue-500 h-3 rounded-full"
+                      style={{ width: `${(a.remaining / a.totalEstimated) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ];
+            })()}
+          </div>
+          {/* Transactions table for selected particular */}
+          <div className="bg-white rounded-lg shadow-md border border-gray-200">
+            <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Material Tracking List &gt; {selectedParticular}</h3>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3">NO.</th>
+                    <th className="px-6 py-3">Particulars</th>
+                    <th className="px-6 py-3">Date</th>
+                    <th className="px-6 py-3">Received</th>
+                    <th className="px-6 py-3">Consumed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {getTransactionsForParticular(selectedParticular).map((txn, idx) => (
+                    <tr key={txn.drNo + idx}>
+                      <td className="px-6 py-4">{String(idx+1).padStart(2, '0')}</td>
+                      <td className="px-6 py-4 text-red-600 font-bold">{txn.particulars}</td>
+                      <td className="px-6 py-4">{txn.date}</td>
+                      <td className="px-6 py-4">{txn.received || txn.amount || '-'}</td>
+                      <td className="px-6 py-4">{txn.consumed || txn.paid || '-'}</td>
+                    </tr>
+                  ))}
+                  {/* Totals row */}
+                  <tr className="bg-gray-50 font-semibold">
+                    <td className="px-6 py-4" colSpan={3}>Total</td>
+                    <td className="px-6 py-4">{getAnalyticsForParticular(selectedParticular).totalReceived}</td>
+                    <td className="px-6 py-4">{getAnalyticsForParticular(selectedParticular).totalConsumed}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 };

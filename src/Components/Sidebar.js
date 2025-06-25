@@ -56,7 +56,7 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-[201px] bg-[#669BBC] shadow-lg text-white flex flex-col p-4 rounded-r-2xl overflow-y-auto">
+    <aside className="fixed left-0 top-0 h-screen w-[201px] bg-[#669BBC] shadow-lg text-white flex flex-col p-4 rounded-r-2xl overflow-y-auto z-20">
       <div className="flex items-center justify-center mb-6 sticky top-0 bg-[#669BBC] pt-2 pb-4 z-10">
         <img
           src={logo1}
@@ -65,7 +65,7 @@ export default function Sidebar() {
         />
       </div>
       <nav className="flex-1 overflow-y-auto">
-        <ul className="space-y-2">
+        <ul className="space-y-1">
           {sidebarroutes.map((route, index) => (
             <li key={index}>
               <div

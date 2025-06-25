@@ -5,14 +5,19 @@ import { CreditCard, Plus, X, Upload, Download, Wallet, CircleDollarSign, BarCha
 import { useToast } from "../context/ToastContext";
 import * as XLSX from 'xlsx';
 import AddPaymentModal from "../Components/AddPaymentModal";
+import { useProject } from "../context/ProjectContext";
+import { useClientContext } from "../context/ClientContext";
 
 const ClientPayments = () => {
   const location = useLocation();
   const { showSuccess, showInfo } = useToast();
   const fileInputRef = useRef(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-
-  // Sample data to match the image
+  const [isAddPlanModalOpen, setIsAddPlanModalOpen] = useState(false);
+  const [paymentPlan, setPaymentPlan] = useState([]);
+  const [editPlanRows, setEditPlanRows] = useState(null);
+  const { selectedProject } = useProject();
+  const { clientList } = useClientContext();
   const [paymentData, setPaymentData] = useState([
     {
       no: "01",
@@ -31,6 +36,10 @@ const ClientPayments = () => {
       remarks: "-"
     }
   ]);
+
+  // Find the client for the selected project
+  const client = clientList.find(c => (c.projects || []).includes(selectedProject?.name));
+  const totalBudget = client?.totalBudget || '0';
 
   // Calculate analytics data
   const analytics = useMemo(() => {
@@ -294,11 +303,11 @@ const ClientPayments = () => {
             ADD PAYMENT
           </button>
           <button 
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => setIsAddPlanModalOpen(true)}
             className="bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600 flex items-center gap-2 min-w-[180px] justify-center"
           >
             <Upload size={18} />
-            UPLOAD PLAN
+            ADD PAYMENT PLAN
           </button>
           <button 
             onClick={handleExportToExcel}
@@ -317,7 +326,7 @@ const ClientPayments = () => {
         </div>
 
         {/* Payments Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white rounded-lg shadow overflow-hidden mb-8">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-gray-100">
@@ -354,15 +363,143 @@ const ClientPayments = () => {
           </div>
         </div>
 
+        {/* Payment Plan Table (Pre-planned) */}
+        {paymentPlan.length > 0 && (
+          <div className="bg-white rounded-lg shadow mb-8 overflow-hidden mt-8">
+            <div className="flex items-center justify-between p-4 font-semibold text-lg border-b">
+              <span>Payment Plan (Pre-planned)</span>
+              <button
+                className="text-blue-600 border border-blue-600 px-3 py-1 rounded hover:bg-blue-50 text-sm"
+                onClick={() => {
+                  setEditPlanRows(paymentPlan);
+                  setIsAddPlanModalOpen(true);
+                }}
+              >Edit</button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-6 py-3">Date</th>
+                    <th className="px-6 py-3 text-center">Amount</th>
+                    <th className="px-6 py-3">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paymentPlan.map((row, idx) => (
+                    <tr key={idx} className="border-b">
+                      <td className="px-6 py-3">{row.date}</td>
+                      <td className="px-6 py-3 text-center">{formatNumber(Number(row.amount))}</td>
+                      <td className="px-6 py-3">{row.remarks || '-'}</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-gray-50 font-semibold">
+                    <td className="px-6 py-3 text-right">Total</td>
+                    <td className="px-6 py-3 text-center">{formatNumber(paymentPlan.reduce((sum, row) => sum + Number(row.amount), 0))}</td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* Add Payment Modal */}
         <AddPaymentModal
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
           onAdd={handleAddPayment}
         />
+
+        {/* Add Payment Plan Modal */}
+        <AddPaymentPlanModal
+          isOpen={isAddPlanModalOpen}
+          onClose={() => { setIsAddPlanModalOpen(false); setEditPlanRows(null); }}
+          onSave={(rows) => {
+            setPaymentPlan(rows);
+            setIsAddPlanModalOpen(false);
+            setEditPlanRows(null);
+            showSuccess('Payment plan added successfully!');
+          }}
+          totalBudget={totalBudget}
+          initialRows={editPlanRows}
+        />
       </div>
     </>
   );
 };
+
+function AddPaymentPlanModal({ isOpen, onClose, onSave, totalBudget, initialRows }) {
+  const [rows, setRows] = useState(initialRows || [{ date: '', amount: '', remarks: '' }]);
+  const [error, setError] = useState('');
+
+  // If initialRows changes (editing), update rows
+  React.useEffect(() => {
+    if (isOpen) {
+      setRows(initialRows && initialRows.length > 0 ? initialRows : [{ date: '', amount: '', remarks: '' }]);
+    }
+  }, [initialRows, isOpen]);
+
+  const handleRowChange = (idx, field, value) => {
+    const updated = [...rows];
+    updated[idx][field] = value;
+    setRows(updated);
+  };
+
+  const addRow = () => setRows([...rows, { date: '', amount: '', remarks: '' }]);
+  const removeRow = (idx) => setRows(rows.filter((_, i) => i !== idx));
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const sum = rows.reduce((acc, row) => acc + Number(row.amount), 0);
+    const budget = Number(String(totalBudget).replace(/,/g, ''));
+    if (sum !== budget) {
+      setError(`Total of all payments (${sum}) must match the project total budget (${budget})`);
+      return;
+    }
+    setError('');
+    onSave(rows.filter(row => row.date && row.amount));
+    onClose();
+  };
+
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
+        <h2 className="text-xl font-semibold mb-4">Add Payment Plan</h2>
+        <form onSubmit={handleSubmit}>
+          <table className="w-full mb-4">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Remarks</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => (
+                <tr key={idx}>
+                  <td><input type="date" value={row.date} onChange={e => handleRowChange(idx, 'date', e.target.value)} required className="border p-1 rounded" /></td>
+                  <td><input type="number" value={row.amount} onChange={e => handleRowChange(idx, 'amount', e.target.value)} required className="border p-1 rounded" /></td>
+                  <td><input value={row.remarks} onChange={e => handleRowChange(idx, 'remarks', e.target.value)} className="border p-1 rounded" /></td>
+                  <td>
+                    {rows.length > 1 && <button type="button" onClick={() => removeRow(idx)} className="text-red-500">-</button>}
+                    {idx === rows.length - 1 && <button type="button" onClick={addRow} className="text-green-500 ml-2">+</button>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {error && <div className="text-red-500 mb-2">{error}</div>}
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
+            <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">Save Payment Plan</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export default ClientPayments;

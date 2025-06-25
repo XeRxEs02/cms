@@ -3,6 +3,8 @@ import Navbar from "../Components/Navbar";
 import { useLocation } from "react-router-dom";
 import { BadgeInfo, X } from "lucide-react";
 import { useToast } from "../context/ToastContext";
+import { useClientContext, ClientProvider } from '../context/ClientContext';
+import { useProject } from '../context/ProjectContext';
 
 // General Information Modal Component
 const AddGeneralInfoModal = ({ isOpen, onClose, onSave, clientList }) => {
@@ -24,10 +26,10 @@ const AddGeneralInfoModal = ({ isOpen, onClose, onSave, clientList }) => {
     if (clientData) {
       setFormData({
         clientName: clientData.clientName,
-        projectNo: clientData.projectNo,
-        labourContractor: clientData.labourContractor,
-        address: clientData.address,
-        totalBudget: clientData.totalBudget
+        projectNo: clientData.projectNo || "",
+        labourContractor: clientData.labourContractor || "",
+        address: clientData.address || "",
+        totalBudget: clientData.totalBudget || ""
       });
       showInfo(`Client details for "${selectedClient}" auto-filled successfully!`);
     } else {
@@ -53,7 +55,6 @@ const AddGeneralInfoModal = ({ isOpen, onClose, onSave, clientList }) => {
       return;
     }
     onSave(formData);
-    showSuccess(`General information for "${formData.clientName}" saved successfully!`);
     setFormData({
       clientName: "",
       projectNo: "",
@@ -232,6 +233,21 @@ const AddRateListModal = ({ isOpen, onClose, onSave, rateList }) => {
                   <option key={role} value={role} />
                 ))}
               </datalist>
+              {formData.role && !rateList.some(([role]) => role === formData.role) && (
+                <button
+                  type="button"
+                  className="mt-2 px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                  onClick={() => {
+                    if (formData.role && formData.rate) {
+                      onSave({ role: formData.role, rate: formData.rate });
+                      setFormData({ role: '', rate: '' });
+                      onClose();
+                    }
+                  }}
+                >
+                  Add "{formData.role}" to roles
+                </button>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -332,192 +348,8 @@ const AddClientModal = ({ isOpen, onClose, onAdd, existingClients }) => {
   );
 };
 
-const Indent = () => {
-  const location = useLocation();
-  const { showInfo, showSuccess } = useToast();
-
-  // State for general information
-  const [generalInfo, setGeneralInfo] = useState([
-    ["Name Of Client", "Mr. Narendra Kori"],
-    ["Project No.", "#MC02"],
-    ["Labour Contractor", "Thippanna B"],
-    ["Address", "Mahendra Enclave"],
-    ["Total Budget", "10,00,000"],
-  ]);
-
-  // State for rate list - only the 4 predefined roles
-  const [rateList, setRateList] = useState([
-    ["Head Mason", "800"],
-    ["Mason", "800"],
-    ["M - Helper", "600"],
-    ["W - Helper", "400"],
-  ]);
-
-  // State for modals
-  const [isGeneralInfoModalOpen, setIsGeneralInfoModalOpen] = useState(false);
-  const [isRateListModalOpen, setIsRateListModalOpen] = useState(false);
-
-  // New state for client list and modal
-  const [clientList, setClientList] = useState([
-    {
-      clientName: "Mr. Narendra Kori",
-      projectNo: "#MC02",
-      labourContractor: "Thippanna B",
-      address: "Mahendra Enclave",
-      totalBudget: "10,00,000"
-    }
-  ]);
-  const [selectedClientIndex, setSelectedClientIndex] = useState(0);
-  const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
-
-  // Function to handle saving general information
-  const handleSaveGeneralInfo = (data) => {
-    const newGeneralInfo = [
-      ["Name Of Client", data.clientName],
-      ["Project No.", data.projectNo],
-      ["Labour Contractor", data.labourContractor],
-      ["Address", data.address],
-      ["Total Budget", data.totalBudget],
-    ];
-    setGeneralInfo(newGeneralInfo);
-    showSuccess(`General information updated successfully for ${data.clientName}!`);
-  };
-
-  // Function to handle saving rate list item
-  const handleSaveRateList = (data) => {
-    // Check if role already exists
-    const existingRoleIndex = rateList.findIndex(item => item[0] === data.role);
-    if (existingRoleIndex !== -1) {
-      // Update existing role rate
-      const updatedRateList = [...rateList];
-      updatedRateList[existingRoleIndex] = [data.role, data.rate];
-      setRateList(updatedRateList);
-      showSuccess(`Rate for ${data.role} updated to ₹${data.rate}`);
-    } else {
-      // Add new role
-      const newRateList = [...rateList, [data.role, data.rate]];
-      setRateList(newRateList);
-      showSuccess(`Rate for ${data.role} added successfully!`);
-    }
-  };
-
-  // Add client handler
-  const handleAddClient = (client) => {
-    setClientList((prev) => [...prev, client]);
-    setSelectedClientIndex(clientList.length); // select the newly added client
-    showSuccess(`Client '${client.clientName}' added!`);
-  };
-
-  return (
-    <>
-      <Navbar currentPath={location.pathname} icon={BadgeInfo} />
-      <div className="p-6 max-w-4xl min-h-screen">
-        <div className="max-w-4xl mx-auto space-y-8">
-          {/* General Information Section */}
-          <section className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 rounded-t-lg flex-wrap gap-2 bg-gray-200">
-              <h2 className="font-semibold text-lg text-gray-900">
-                General Information
-              </h2>
-              <div className="flex gap-2">
-                <button
-                  className="bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded"
-                  type="button"
-                  onClick={() => setIsAddClientModalOpen(true)}
-                >
-                  Add Client
-                </button>
-                <button
-                  className="bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded"
-                  type="button"
-                  onClick={() => {
-                    setIsGeneralInfoModalOpen(true);
-                    showInfo("Add General Info modal opened. Enter project details.");
-                  }}
-                >
-                  General Information List
-                </button>
-              </div>
-            </div>
-            <table className="w-full text-gray-700 text-sm">
-              <tbody>
-                <tr><td className="px-6 py-3 w-1/3">Name Of Client</td><td className="px-6 py-3">{clientList[clientList.length-1]?.clientName}</td></tr>
-                <tr><td className="px-6 py-3 w-1/3">Project No.</td><td className="px-6 py-3">{clientList[clientList.length-1]?.projectNo}</td></tr>
-                <tr><td className="px-6 py-3 w-1/3">Labour Contractor</td><td className="px-6 py-3">{clientList[clientList.length-1]?.labourContractor}</td></tr>
-                <tr><td className="px-6 py-3 w-1/3">Address</td><td className="px-6 py-3">{clientList[clientList.length-1]?.address}</td></tr>
-                <tr><td className="px-6 py-3 w-1/3">Total Budget</td><td className="px-6 py-3">{clientList[clientList.length-1]?.totalBudget}</td></tr>
-              </tbody>
-            </table>
-          </section>
-
-          {/* Rate List Section */}
-          <section className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 rounded-t-lg flex-wrap gap-2 bg-gray-200">
-              <h2 className="font-semibold text-lg text-gray-900">Rate List</h2>
-              <div className="flex gap-2">
-                <button
-                  className="bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded"
-                  type="button"
-                  onClick={() => {
-                    setIsRateListModalOpen(true);
-                    showInfo("Add Rate List modal opened. Add a new rate.");
-                  }}
-                >
-                  Add Rate
-                </button>
-                <button
-                  className="bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded"
-                  type="button"
-                  onClick={() => {
-                    setIsRateListModalOpen(true);
-                    showInfo("Add Rate List modal opened. Select a role to set rates.");
-                  }}
-                >
-                  Rate List
-                </button>
-              </div>
-            </div>
-
-            <table className="w-full text-gray-700 text-sm">
-              <tbody>
-                {rateList.map(([label, value], index) => (
-                  <tr
-                    key={index}
-                    className="border-b last:border-0 border-gray-200"
-                  >
-                    <td className="px-6 py-3 w-1/3">{label}</td>
-                    <td className="px-6 py-3">{value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-        </div>
-      </div>
-
-      {/* Modals */}
-      <AddGeneralInfoModal
-        isOpen={isGeneralInfoModalOpen}
-        onClose={() => setIsGeneralInfoModalOpen(false)}
-        onSave={handleSaveGeneralInfo}
-        clientList={clientList}
-      />
-
-      <AddRateListModal
-        isOpen={isRateListModalOpen}
-        onClose={() => setIsRateListModalOpen(false)}
-        onSave={handleSaveRateList}
-        rateList={rateList}
-      />
-
-      <AddClientModal
-        isOpen={isAddClientModalOpen}
-        onClose={() => setIsAddClientModalOpen(false)}
-        onAdd={handleAddClient}
-        existingClients={clientList.map(c => c.clientName)}
-      />
-    </>
-  );
+const IndentPage = () => {
+  return null;
 };
 
-export default Indent;
+export default IndentPage;

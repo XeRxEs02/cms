@@ -57,6 +57,21 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(true);
       return true;
     }
+    // Hardcoded saielva credentials
+    if (email === "saielva" && password === "Tarun@2002") {
+      const userData = {
+        name: 'Sai Elva',
+        email: 'saielva',
+        role: 'User'
+      };
+
+      localStorage.setItem('isAuthenticated', 'true');
+      localStorage.setItem('userData', JSON.stringify(userData));
+
+      setUser(userData);
+      setIsAuthenticated(true);
+      return true;
+    }
     return false;
   };
 
