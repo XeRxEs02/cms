@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import authService from '../services/authService';
 
 // Create the authentication context
 const AuthContext = createContext();
@@ -16,14 +17,27 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Check authentication on page load/refresh
-    const checkAuth = () => {
+    const checkAuth = async () => {
       try {
-        const authState = localStorage.getItem('isAuthenticated');
-        const userData = localStorage.getItem('userData');
-
-        if (authState === 'true' && userData) {
-          setIsAuthenticated(true);
-          setUser(JSON.parse(userData));
+        if (authService.isAuthenticated()) {
+          const userData = authService.getCurrentUser();
+          if (userData) {
+            setIsAuthenticated(true);
+            setUser(userData);
+          } else {
+            // Try to get user info from server
+            try {
+              const userInfo = await authService.getUserInfo();
+              setIsAuthenticated(true);
+              setUser(userInfo);
+            } catch (error) {
+              console.error('Failed to get user info:', error);
+              setIsAuthenticated(false);
+              setUser(null);
+              // Clear invalid tokens
+              await authService.logout();
+            }
+          }
         } else {
           setIsAuthenticated(false);
           setUser(null);
@@ -40,48 +54,39 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  // Login function with hardcoded admin credentials
-  const login = (email, password) => {
-    // Hardcoded admin credentials
-    if (email === "admin" && password === "admin") {
-      const userData = {
-        name: 'Admin',
-        email: 'admin',
-        role: 'Admin'
-      };
-
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('userData', JSON.stringify(userData));
-
-      setUser(userData);
-      setIsAuthenticated(true);
-      return true;
+  // Login function using Keycloak
+  const login = async (username, password) => {
+    try {
+      setIsLoading(true);
+      const result = await authService.login(username, password);
+      
+      if (result.success) {
+        setUser(result.user);
+        setIsAuthenticated(true);
+        return { success: true };
+      } else {
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      return { success: false, error: error.message || 'Login failed' };
+    } finally {
+      setIsLoading(false);
     }
-    // Hardcoded saielva credentials
-    if (email === "saielva" && password === "Tarun@2002") {
-      const userData = {
-        name: 'Sai Elva',
-        email: 'saielva',
-        role: 'User'
-      };
-
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('userData', JSON.stringify(userData));
-
-      setUser(userData);
-      setIsAuthenticated(true);
-      return true;
-    }
-    return false;
   };
 
   // Logout function
-  const logout = () => {
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('userData');
-    localStorage.removeItem('selectedProject');
-    setUser(null);
-    setIsAuthenticated(false);
+  const logout = async () => {
+    try {
+      setIsLoading(true);
+      await authService.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
+      setIsAuthenticated(false);
+      setIsLoading(false);
+    }
   };
 
   // Update user profile
