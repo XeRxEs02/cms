@@ -17,6 +17,41 @@ import {
 import { useAppContext } from '../context/AppContext';
 import * as XLSX from 'xlsx';
 import { useToast } from "../context/ToastContext";
+import AddItemDetailsModal from "../Components/AddItemDetailsModal";
+
+// Analytics component for Material Flow detail view
+function MaterialFlowAnalytics({ particular, getTransactionsForParticular }) {
+  const txns = getTransactionsForParticular(particular);
+  let totalReceived = 0, totalConsumed = 0, unit = '-';
+  let totalEstimated = 0;
+  if (txns.length > 0) {
+    totalReceived = txns.reduce((sum, t) => sum + (Number(t.received) || 0), 0);
+    totalConsumed = txns.reduce((sum, t) => sum + (Number(t.consumed) || 0), 0);
+    unit = txns[0].unit || '-';
+    totalEstimated = txns[0].totalEstimated ? Number(txns[0].totalEstimated) : 0;
+  }
+  const remaining = totalReceived - totalConsumed;
+  return (
+    <div className="flex flex-wrap gap-4 px-4 py-4">
+      <div className="flex-1 min-w-[180px] bg-gray-50 rounded-lg p-4 text-center">
+        <div className="text-xs text-gray-500 mb-1">Total Received</div>
+        <div className="text-2xl font-bold text-[#7BAFD4]">{totalReceived} {unit}</div>
+      </div>
+      <div className="flex-1 min-w-[180px] bg-gray-50 rounded-lg p-4 text-center">
+        <div className="text-xs text-gray-500 mb-1">Total Consumed</div>
+        <div className="text-2xl font-bold text-red-500">{totalConsumed} {unit}</div>
+      </div>
+      <div className="flex-1 min-w-[180px] bg-gray-50 rounded-lg p-4 text-center">
+        <div className="text-xs text-gray-500 mb-1">Remaining In Stock</div>
+        <div className="text-2xl font-bold text-green-600">{remaining} {unit}</div>
+      </div>
+      <div className="flex-1 min-w-[180px] bg-gray-50 rounded-lg p-4 text-center">
+        <div className="text-xs text-gray-500 mb-1">Total Estimated</div>
+        <div className="text-2xl font-bold text-gray-700">{totalEstimated} {unit}</div>
+      </div>
+    </div>
+  );
+}
 
 const Inventory = () => {
   const location = useLocation();
@@ -55,6 +90,69 @@ const Inventory = () => {
 
   // Add state for selected particular
   const [selectedParticular, setSelectedParticular] = useState(null);
+  const [selectedTrackingItem, setSelectedTrackingItem] = useState(null);
+
+  // Add at the top of the Inventory component
+  const [showConsumeModal, setShowConsumeModal] = useState(false);
+  const [consumeForm, setConsumeForm] = useState({ quantity: '', date: '' });
+  const [consumeError, setConsumeError] = useState('');
+
+  // Handler to open modal
+  const handleOpenConsumeModal = () => {
+    setConsumeForm({ quantity: '', date: '' });
+    setConsumeError('');
+    setShowConsumeModal(true);
+  };
+
+  // Handler to submit consumed entry
+  const handleConsumeSubmit = () => {
+    const quantity = Number(consumeForm.quantity);
+    const date = consumeForm.date;
+    if (!quantity || quantity <= 0) {
+      setConsumeError('Please enter a valid consumed quantity.');
+      return;
+    }
+    if (!date) {
+      setConsumeError('Please select a date.');
+      return;
+    }
+    // Prevent negative stock
+    const txns = getTransactionsForParticular(selectedParticular);
+    const totalReceived = txns.reduce((sum, t) => sum + (Number(t.received) || 0), 0);
+    const totalConsumed = txns.reduce((sum, t) => sum + (Number(t.consumed) || 0), 0);
+    const remaining = totalReceived - totalConsumed;
+    if (quantity > remaining) {
+      setConsumeError('Consumed quantity cannot exceed remaining stock.');
+      return;
+    }
+    // Prevent consuming before any received date
+    const receivedDates = txns.filter(t => Number(t.received) > 0 && t.date).map(t => new Date(t.date));
+    if (receivedDates.length === 0) {
+      setConsumeError('Cannot consume before any stock is received.');
+      return;
+    }
+    const minReceivedDate = new Date(Math.min(...receivedDates.map(d => d.getTime())));
+    const consumeDate = new Date(date);
+    if (consumeDate < minReceivedDate) {
+      setConsumeError(`Consumed date cannot be before first received date (${minReceivedDate.toLocaleDateString()}).`);
+      return;
+    }
+    // Add new consumed entry for this particular
+    const newEntry = {
+      no: Date.now().toString(),
+      drNo: '-',
+      particulars: selectedParticular,
+      date,
+      received: 0,
+      consumed: quantity,
+      unit: (txns[0] && txns[0].unit) || '-',
+      remarks: 'Consumed entry',
+    };
+    if (typeof updateDailyReport === 'function') {
+      updateDailyReport({ ...newEntry, isNew: true });
+    }
+    setShowConsumeModal(false);
+  };
 
   // Function to generate next DR number
   const getNextDRNumber = () => {
@@ -378,6 +476,23 @@ const Inventory = () => {
       // Calculate balance
       const balance = amount - paid;
 
+      // Check if this is a new item (not already in the list)
+      const isNewItem = !appData.dailyReport.entries.some(entry => entry.particulars.toLowerCase() === formData.particulars.toLowerCase());
+      if (isNewItem) {
+        // Add a blank entry for the new item (all columns empty except particulars)
+        await updateDailyReport({
+          particulars: formData.particulars,
+          drNo: '',
+          date: '',
+          amount: '',
+          paid: '',
+          balance: '',
+          remarks: '',
+          isNew: true
+        });
+        showInfo(`New item '${formData.particulars}' added to Material Tracking List.`);
+      }
+
       // Create a new entry in the daily report
       const newEntry = {
         ...formData,
@@ -425,10 +540,22 @@ const Inventory = () => {
       if (txn.amount && !txn.received) totalReceived += Number(txn.amount);
       if (txn.paid && !txn.consumed) totalConsumed += Number(txn.paid);
     });
-    const totalEstimated = 100; // TODO: Replace with actual estimate if available
+    // Use totalEstimated from the first transaction for this material, fallback to 100
+    const totalEstimated = txns.length > 0 && txns[0].totalEstimated ? Number(txns[0].totalEstimated) : 100;
     const remaining = totalReceived - totalConsumed;
     return { totalReceived, totalConsumed, totalEstimated, remaining };
   };
+
+  // Remove allParticulars for listing items, use unique particulars from daily report
+  const uniqueParticulars = useMemo(() => {
+    const set = new Set();
+    appData.dailyReport.entries.forEach(entry => {
+      if (entry.particulars && entry.particulars.trim() !== "") {
+        set.add(entry.particulars);
+      }
+    });
+    return Array.from(set);
+  }, [appData.dailyReport.entries]);
 
   return (
     <>
@@ -463,279 +590,365 @@ const Inventory = () => {
         {/* Tab Content */}
         {activeTab === "Material Flow" && (
           <div>
-            <div className="p-3 sm:p-4 md:p-6">
-              {/* Top row of cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              {/* Total Amount Card */}
-              <div className="bg-white border-2 border-[#7BAFD4] rounded-md p-4 shadow relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-12 bg-[#7BAFD4]"></div>
-                <div className="relative z-10 flex justify-between items-start">
-                  <div className="mt-8 ml-2">
-                    <div className="text-lg sm:text-xl font-bold">
-                      ₹ {totalAmount.toLocaleString()}
+            {/* Material List or Detail View */}
+            {!selectedParticular ? (
+              <div className="p-3 sm:p-4 md:p-6">
+                <div className="bg-white rounded-lg shadow-md border border-gray-200">
+                  <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Material Flow</h3>
+                      <p className="text-sm text-gray-600">Click a material to view its unit flow and records.</p>
                     </div>
-                    <div className="text-gray-600 text-sm sm:text-base font-medium mt-1">Total Amount</div>
                   </div>
-                  <div className="bg-white p-2 rounded-md mt-6 mr-2">
-                    <Wallet size={20} className="sm:w-6 sm:h-6 text-black" />
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">NO.</th>
+                          <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Particulars</th>
+                          <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Unit</th>
+                          <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Total Received</th>
+                          <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Total Consumed</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {uniqueParticulars.map((particular, idx) => {
+                          const txns = getTransactionsForParticular(particular);
+                          const totalReceived = txns.reduce((sum, t) => sum + (Number(t.received) || 0), 0);
+                          const totalConsumed = txns.reduce((sum, t) => sum + (Number(t.consumed) || 0), 0);
+                          const unit = txns.length > 0 && txns[0].unit ? txns[0].unit : '-';
+                          return (
+                            <tr key={particular} className="text-sm hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedParticular(particular)}>
+                              <td className="px-6 py-4">{String(idx+1).padStart(2, '0')}</td>
+                              <td className="px-6 py-4 text-[#7BAFD4] font-bold">{particular}</td>
+                              <td className="px-6 py-4">{unit}</td>
+                              <td className="px-6 py-4">{totalReceived} {unit}</td>
+                              <td className="px-6 py-4">{totalConsumed} {unit}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
-
-              {/* Total Paid Card */}
-              <div className="bg-white border-2 border-[#7BAFD4] rounded-md p-4 shadow relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-12 bg-[#7BAFD4]"></div>
-                <div className="relative z-10 flex justify-between items-start">
-                  <div className="mt-8 ml-2">
-                    <div className="text-lg sm:text-xl font-bold">
-                      ₹ {totalPaid.toLocaleString()}
-                    </div>
-                    <div className="text-gray-600 text-sm sm:text-base font-medium mt-1">Total Paid</div>
-                  </div>
-                  <div className="bg-white p-2 rounded-md mt-6 mr-2">
-                    <CircleDollarSign size={20} className="sm:w-6 sm:h-6 text-black" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Payment Percentage Card */}
-              <div className="bg-white border-2 border-[#7BAFD4] rounded-md p-4 shadow relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-12 bg-[#7BAFD4]"></div>
-                <div className="relative z-10 flex justify-between items-start">
-                  <div className="mt-8 ml-2">
-                    <div className="text-lg sm:text-xl font-bold text-red-500">
-                      {paymentPercentage}%
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2 mb-2 max-w-[120px]">
-                      <div
-                        className="bg-red-500 h-2.5 rounded-full"
-                        style={{ width: `${paymentPercentage}%` }}
-                      ></div>
-                    </div>
-                    <div className="text-gray-600 text-sm sm:text-base font-medium">Payment Done %</div>
-                  </div>
-                  <div className="bg-white p-2 rounded-md mt-6 mr-2">
-                    <BarChart3 size={20} className="sm:w-6 sm:h-6 text-black" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Balance Card */}
-              <div className="bg-white border-2 border-[#7BAFD4] rounded-md p-4 shadow relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-12 bg-[#7BAFD4]"></div>
-                <div className="relative z-10 flex justify-between items-start">
-                  <div className="mt-8 ml-2">
-                    <div className="text-lg sm:text-xl font-bold text-red-500">
-                      ₹ {totalBalance.toLocaleString()}
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2 mb-2 max-w-[120px]">
-                      <div
-                        className="bg-red-500 h-2.5 rounded-full"
-                        style={{ width: `${balancePercentage}%` }}
-                      ></div>
-                    </div>
-                    <div className="text-gray-600 text-sm sm:text-base font-medium">Balance</div>
-                  </div>
-                  <div className="bg-white p-2 rounded-md mt-6 mr-2">
-                    <AlertCircle size={20} className="sm:w-6 sm:h-6 text-black" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Middle row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              {/* Item Distribution Chart */}
-              <div className="bg-[#7BAFD4] rounded-md p-4 shadow-md border-2 border-white">
-                <div className="text-white font-medium mb-4">Item Distribution</div>
-                <div className="flex justify-center my-3">
-                  {renderCircularProgress(paymentPercentage, "pink")}
-                </div>
-                <div className="mt-2 text-sm">
-                  <div className="flex items-center text-white">
-                    <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                      <span>Total Items: {appData.dailyReport.entries.length}</span>
-                  </div>
-                  <div className="flex items-center text-white mt-1">
-                    <div className="w-3 h-3 bg-red-400 rounded-full mr-2"></div>
-                    <span>Unique Items: {Object.keys(itemCounts).length}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Payment Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-1 md:grid-rows-2 gap-4">
-                <div className="bg-[#7BAFD4] rounded-md p-4 shadow-md border-2 border-white">
-                  <div className="text-white text-sm mb-2">Payment Status</div>
-                  <div className="text-red-500 text-base sm:text-lg md:text-xl font-bold">
-                    {totalPaid.toLocaleString()} / {totalAmount.toLocaleString()}
-                  </div>
-                  <div className="flex justify-center my-2">
-                    {renderCircularProgress(paymentPercentage, "pink")}
-                  </div>
-                </div>
-                <div className="bg-[#7BAFD4] rounded-md p-4 shadow-md border-2 border-white">
-                  <div className="text-white text-sm mb-2">Payment Percentage</div>
-                  <div className="text-red-500 text-base sm:text-lg md:text-xl font-bold">
-                    {paymentPercentage}%
-                  </div>
-                  <div className="flex justify-center my-2">
-                    {renderCircularProgress(paymentPercentage, "pink")}
-                  </div>
-                </div>
-              </div>
-
-              {/* Balance Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-1 md:grid-rows-2 gap-4">
-                <div className="bg-[#7BAFD4] rounded-md p-4 shadow-md border-2 border-white">
-                  <div className="text-white text-sm mb-2">Balance Status</div>
-                  <div className="text-red-500 text-base sm:text-lg md:text-xl font-bold">
-                    {totalBalance.toLocaleString()} / {totalAmount.toLocaleString()}
-                  </div>
-                  <div className="flex justify-center my-2">
-                    {renderCircularProgress(balancePercentage, "pink")}
-                  </div>
-                </div>
-                <div className="bg-[#7BAFD4] rounded-md p-4 shadow-md border-2 border-white">
-                  <div className="text-white text-sm mb-2">Balance Percentage</div>
-                  <div className="text-red-500 text-base sm:text-lg md:text-xl font-bold">
-                    {balancePercentage}%
-                  </div>
-                  <div className="flex justify-center my-2">
-                    {renderCircularProgress(balancePercentage, "pink")}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom row - Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Bar Chart */}
-              <div className="bg-[#7BAFD4] rounded-md p-4 shadow-md border-2 border-white">
-                <div className="flex flex-wrap justify-between items-center mb-4">
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                      <span className="text-white text-xs sm:text-sm">Total Amount</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 bg-red-400 rounded-full mr-2"></div>
-                      <span className="text-white text-xs sm:text-sm">Paid Amount</span>
+            ) : (
+              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4">
+                <button
+                  className="mb-4 px-4 py-2 bg-[#7BAFD4] text-white rounded hover:bg-[#669BBC]"
+                  onClick={() => setSelectedParticular(null)}
+                >
+                  ← Back to List
+                </button>
+                {/* Add Consumed Entry Button */}
+                <button
+                  className="mb-4 ml-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                  onClick={handleOpenConsumeModal}
+                >
+                  + Add Consumed Entry
+                </button>
+                {/* Consume Modal */}
+                {showConsumeModal && (
+                  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50">
+                    <div className="bg-white p-6 rounded shadow-md w-full max-w-xs">
+                      <h3 className="text-lg font-semibold mb-4">Add Consumed Quantity</h3>
+                      <div className="mb-3">
+                        <label className="block text-sm mb-1">Consumed Quantity</label>
+                        <input
+                          type="number"
+                          className="w-full border px-2 py-1 rounded"
+                          value={consumeForm.quantity}
+                          onChange={e => setConsumeForm(f => ({ ...f, quantity: e.target.value }))}
+                          min="1"
+                        />
+                      </div>
+                      <div className="mb-3">
+                        <label className="block text-sm mb-1">Date</label>
+                        <input
+                          type="date"
+                          className="w-full border px-2 py-1 rounded"
+                          value={consumeForm.date}
+                          onChange={e => setConsumeForm(f => ({ ...f, date: e.target.value }))}
+                        />
+                      </div>
+                      {consumeError && <div className="text-red-500 text-sm mb-2">{consumeError}</div>}
+                      <div className="flex gap-2 mt-4">
+                        <button
+                          className="px-4 py-2 bg-[#7BAFD4] text-white rounded hover:bg-[#669BBC]"
+                          onClick={handleConsumeSubmit}
+                        >
+                          Add
+                        </button>
+                        <button
+                          className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                          onClick={() => setShowConsumeModal(false)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
+                {/* Analytics Section for Quantities */}
+                {(() => {
+                  const txns = getTransactionsForParticular(selectedParticular);
+                  const totalReceived = txns.reduce((sum, t) => sum + (Number(t.received) || 0), 0);
+                  const totalConsumed = txns.reduce((sum, t) => sum + (Number(t.consumed) || 0), 0);
+                  const unit = txns.length > 0 && txns[0].unit ? txns[0].unit : '-';
+                  const remaining = totalReceived - totalConsumed;
+                  return (
+                    <div className="mb-6">
+                      <div className="flex flex-wrap gap-4 mb-4">
+                        <div className="flex-1 min-w-[180px] bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 text-center shadow-sm border border-blue-100">
+                          <div className="text-xs text-blue-700 mb-1 font-medium tracking-wide uppercase">Total Received</div>
+                          <div className="text-3xl font-extrabold text-blue-600 flex items-center justify-center gap-1">
+                            <span>{totalReceived}</span> <span className="text-base font-semibold text-blue-400">{unit}</span>
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-[180px] bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg p-4 text-center shadow-sm border border-pink-100">
+                          <div className="text-xs text-pink-700 mb-1 font-medium tracking-wide uppercase">Total Consumed</div>
+                          <div className="text-3xl font-extrabold text-pink-500 flex items-center justify-center gap-1">
+                            <span>{totalConsumed}</span> <span className="text-base font-semibold text-pink-300">{unit}</span>
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-[180px] bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 text-center shadow-sm border border-green-100">
+                          <div className="text-xs text-green-700 mb-1 font-medium tracking-wide uppercase">Remaining In Stock</div>
+                          <div className="text-3xl font-extrabold text-green-600 flex items-center justify-center gap-1">
+                            <span>{remaining}</span> <span className="text-base font-semibold text-green-400">{unit}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex justify-center gap-8 mt-2">
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-blue-700">Received</span>
+                          <span className="w-16 h-2 bg-blue-200 rounded-full overflow-hidden block mt-1">
+                            <span className="block h-2 bg-blue-500 rounded-full" style={{ width: `${totalReceived / (totalReceived + totalConsumed + Math.max(remaining, 0)) * 100 || 0}%` }}></span>
+                          </span>
+                          <span className="text-xs text-blue-500 mt-1">{Math.round((totalReceived / (totalReceived + totalConsumed + Math.max(remaining, 0))) * 100) || 0}%</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-pink-700">Consumed</span>
+                          <span className="w-16 h-2 bg-pink-200 rounded-full overflow-hidden block mt-1">
+                            <span className="block h-2 bg-pink-500 rounded-full" style={{ width: `${totalConsumed / (totalReceived + totalConsumed + Math.max(remaining, 0)) * 100 || 0}%` }}></span>
+                          </span>
+                          <span className="text-xs text-pink-500 mt-1">{Math.round((totalConsumed / (totalReceived + totalConsumed + Math.max(remaining, 0))) * 100) || 0}%</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-green-700">Remaining</span>
+                          <span className="w-16 h-2 bg-green-200 rounded-full overflow-hidden block mt-1">
+                            <span className="block h-2 bg-green-500 rounded-full" style={{ width: `${remaining / (totalReceived + totalConsumed + Math.max(remaining, 0)) * 100 || 0}%` }}></span>
+                          </span>
+                          <span className="text-xs text-green-500 mt-1">{Math.round((remaining / (totalReceived + totalConsumed + Math.max(remaining, 0))) * 100) || 0}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+                {/* Quantity Transaction Table Section */}
                 <div className="overflow-x-auto">
-                  {renderBarChart()}
+                  <h5 className="text-md font-semibold mb-2 text-[#2C3E50]">Quantity Transaction Details</h5>
+                  <table className="w-full text-left">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-sm font-semibold text-[#2C3E50]">Item No.</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-[#2C3E50]">DR No.</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-[#2C3E50]">Item Name</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-[#2C3E50]">Date</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-[#2C3E50]">Quantity Received</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-[#2C3E50]">Quantity Used</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-[#2C3E50]">Remaining Quantity</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-[#2C3E50]">Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {(() => {
+                        const txns = getTransactionsForParticular(selectedParticular);
+                        return txns.map((txn, idx) => {
+                          const received = Number(txn.received) || 0;
+                          const used = Number(txn.consumed) || 0;
+                          // Calculate running remaining quantity
+                          const prevTxns = txns.slice(0, idx);
+                          const prevReceived = prevTxns.reduce((sum, t) => sum + (Number(t.received) || 0), 0);
+                          const prevUsed = prevTxns.reduce((sum, t) => sum + (Number(t.consumed) || 0), 0);
+                          const runningRemaining = prevReceived + received - (prevUsed + used);
+                          const unit = txn.unit || (txns[0] && txns[0].unit) || '-';
+                          return (
+                            <tr key={idx} className="text-sm">
+                              <td className="px-4 py-3">{txn.no || idx + 1}</td>
+                              <td className="px-4 py-3">{txn.drNo || '-'}</td>
+                              <td className="px-4 py-3">{txn.particulars}</td>
+                              <td className="px-4 py-3">{txn.date}</td>
+                              <td className="px-4 py-3">{received} {unit}</td>
+                              <td className="px-4 py-3">{used} {unit}</td>
+                              <td className="px-4 py-3">{runningRemaining} {unit}</td>
+                              <td className="px-4 py-3">{txn.remarks || '-'}</td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-            </div>
+            )}
           </div>
-        </div>
         )}
 
-        {/* Inventory List Tab */}
+        {/* Material Tracking List Tab */}
         {activeTab === "Material Tracking List" && (
           <div className="p-3 sm:p-4 md:p-6">
-            <div className="bg-white rounded-lg shadow-md border border-gray-200">
-              <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Material Flow</h3>
-                  <p className="text-sm text-gray-600">Latest inventory transactions grouped by particulars</p>
+            {/* If no item is selected, show the list */}
+            {!selectedTrackingItem ? (
+              <div className="bg-white rounded-lg shadow-md border border-gray-200">
+                <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Material Tracking List</h3>
+                  </div>
+                  <button
+                    onClick={() => setShowAddParticularModal(true)}
+                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
+                  >
+                    <Plus size={20} />
+                    <span>Add Particular</span>
+                  </button>
                 </div>
-                <button
-                  onClick={() => setShowAddParticularModal(true)}
-                  className="bg-[#7BAFD4] hover:bg-[#6B9FD4] text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors"
-                >
-                  <Plus size={20} />
-                  <span>Add Particular</span>
-                </button>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">DR. No.</th>
-                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Particulars</th>
-                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Latest Date</th>
-                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Total Amount</th>
-                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Total Paid</th>
-                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Balance</th>
-                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Status</th>
-                      <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {allParticulars.map((p) => {
-                      // Find entry in daily report
-                      const entry = appData.dailyReport.entries.find(
-                        en => en.particulars.toLowerCase() === p.particulars.toLowerCase()
-                      );
-                      return (
-                        <tr key={p.particulars} className="text-sm hover:bg-gray-50">
-                          <td className="px-6 py-4 text-[#2C3E50]">{p.drNo}</td>
-                          <td className="px-6 py-4">
-                            <div
-                              className="flex items-center cursor-pointer hover:bg-blue-50 rounded-md p-1 transition-colors"
-                              onClick={() => entry && navigate(`/app/material-tracking/${encodeURIComponent(p.particulars)}`)}
-                              title={entry ? "Click to view item details" : "No details yet"}
-                            >
-                              <div className="w-2 h-2 bg-[#7BAFD4] rounded-full mr-2"></div>
-                              <span className="text-[#7BAFD4] hover:text-[#6B9FD4]">
-                                {p.particulars}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-[#4A5568]">{entry ? entry.date : ''}</td>
-                          <td className="px-6 py-4 text-[#2C3E50]">{entry ? `₹${entry.amount}` : ''}</td>
-                          <td className="px-6 py-4 text-[#2C3E50]">{entry ? `₹${entry.paid}` : ''}</td>
-                          <td className="px-6 py-4 text-[#2C3E50]">{entry ? `₹${entry.balance}` : ''}</td>
-                          <td className="px-6 py-4">
-                            {entry ? (
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  entry.balance === 0
-                                    ? 'bg-green-100 text-green-600'
-                                    : entry.paid > 0
-                                    ? 'bg-yellow-100 text-yellow-600'
-                                    : 'bg-red-100 text-red-600'
-                                }`}
-                              >
-                                {entry.balance === 0 ? 'Paid' : entry.paid > 0 ? 'Partial' : 'Pending'}
-                              </span>
-                            ) : ''}
-                          </td>
-                          <td className="px-6 py-4">
-                            {entry && (
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => handleUpdateClick(entry)}
-                                  className="p-1 text-[#7BAFD4] hover:text-[#6B9FD4] rounded-md hover:bg-blue-50 transition-colors"
-                                  title="Update item"
-                                >
-                                  <Edit2 size={16} />
-                                </button>
-                              </div>
-                            )}
-                          </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">NO.</th>
+                        <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Particulars</th>
+                        <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Date</th>
+                        <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Amount</th>
+                        <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Paid</th>
+                        <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {getGroupedTransactions().map((item, idx) => (
+                        <tr key={item.particulars} className="text-sm hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedTrackingItem(item)}>
+                          <td className="px-6 py-4">{String(idx+1).padStart(2, '0')}</td>
+                          <td className="px-6 py-4 text-[#7BAFD4] font-bold">{item.particulars}</td>
+                          <td className="px-6 py-4">{item.date}</td>
+                          <td className="px-6 py-4">₹{item.amount}</td>
+                          <td className="px-6 py-4">₹{item.paid}</td>
+                          <td className="px-6 py-4">₹{item.balance}</td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot className="bg-gray-50 font-semibold">
-                    <tr>
-                      <td colSpan="3" className="px-6 py-4 text-right text-[#2C3E50]">
-                        Total
-                      </td>
-                      <td className="px-6 py-4 text-[#2C3E50]">₹{totalAmount}</td>
-                      <td className="px-6 py-4 text-green-600">₹{totalPaid}</td>
-                      <td className="px-6 py-4 text-red-600">₹{totalBalance}</td>
-                      <td className="px-6 py-4"></td>
-                    </tr>
-                  </tfoot>
-                </table>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            ) : (
+              // If an item is selected, show analytics and transaction table for that item
+              <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4">
+                <button
+                  className="mb-4 px-4 py-2 bg-[#7BAFD4] text-white rounded hover:bg-[#669BBC]"
+                  onClick={() => setSelectedTrackingItem(null)}
+                >
+                  ← Back to List
+                </button>
+                {/* Analytics Section */}
+                {(() => {
+                  const txns = getTransactionsForParticular(selectedTrackingItem.particulars);
+                  const totalAmount = txns.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+                  const totalPaid = txns.reduce((sum, t) => sum + (Number(t.paid) || 0), 0);
+                  const totalBalance = txns.reduce((sum, t) => sum + (Number(t.balance) || 0), 0);
+                  const paymentPercentage = totalAmount > 0 ? Math.round((totalPaid / totalAmount) * 100) : 0;
+                  const balancePercentage = totalAmount > 0 ? Math.round((totalBalance / totalAmount) * 100) : 0;
+                  return (
+                    <div className="mb-6">
+                      <div className="flex flex-wrap gap-4 mb-4">
+                        <div className="flex-1 min-w-[180px] bg-gray-50 rounded-lg p-4 text-center">
+                          <div className="text-xs text-gray-500 mb-1">Total Required</div>
+                          <div className="text-2xl font-bold text-[#7BAFD4]">₹{totalAmount}</div>
+                        </div>
+                        <div className="flex-1 min-w-[180px] bg-gray-50 rounded-lg p-4 text-center">
+                          <div className="text-xs text-gray-500 mb-1">Total Paid</div>
+                          <div className="text-2xl font-bold text-green-600">₹{totalPaid}</div>
+                        </div>
+                        <div className="flex-1 min-w-[180px] bg-gray-50 rounded-lg p-4 text-center">
+                          <div className="text-xs text-gray-500 mb-1">Total Pending</div>
+                          <div className="text-2xl font-bold text-red-500">₹{totalBalance}</div>
+                        </div>
+                      </div>
+                      {/* Modern Bar Chart for Paid vs Pending */}
+                      <div className="flex justify-center mb-4">
+                        {(() => {
+                          const paidWidth = totalAmount > 0 ? (totalPaid / totalAmount) * 220 : 0;
+                          const pendingWidth = totalAmount > 0 ? (totalBalance / totalAmount) * 220 : 0;
+                          return (
+                            <svg width="480" height="80">
+                              {/* Background */}
+                              <rect x="0" y="10" width="470" height="50" rx="18" fill="url(#bgGradient)" opacity="0.15" />
+                              <defs>
+                                <linearGradient id="paidGradient" x1="0" y1="0" x2="1" y2="0">
+                                  <stop offset="0%" stopColor="#43e97b" />
+                                  <stop offset="100%" stopColor="#38f9d7" />
+                                </linearGradient>
+                                <linearGradient id="pendingGradient" x1="0" y1="0" x2="1" y2="0">
+                                  <stop offset="0%" stopColor="#fa709a" />
+                                  <stop offset="100%" stopColor="#fee140" />
+                                </linearGradient>
+                                <linearGradient id="bgGradient" x1="0" y1="0" x2="1" y2="0">
+                                  <stop offset="0%" stopColor="#7BAFD4" />
+                                  <stop offset="100%" stopColor="#f5f7fa" />
+                                </linearGradient>
+                              </defs>
+                              {/* Paid Bar */}
+                              <rect x="20" y="25" width={paidWidth} height="22" rx="11" fill="url(#paidGradient)" />
+                              <text x={20 + paidWidth / 2} y="41" textAnchor="middle" fill="#fff" fontSize="15" fontWeight="bold" style={{textShadow:'0 1px 4px #0002'}}>Paid: ₹{totalPaid}</text>
+                              {/* Pending Bar */}
+                              <rect x={250} y="25" width={pendingWidth} height="22" rx="11" fill="url(#pendingGradient)" />
+                              <text x={250 + pendingWidth / 2} y="41" textAnchor="middle" fill="#fff" fontSize="15" fontWeight="bold" style={{textShadow:'0 1px 4px #0002'}}>Pending: ₹{totalBalance}</text>
+                              {/* Axis labels */}
+                              <text x="20" y="65" fontSize="13" fill="#43e97b" fontWeight="bold">Paid</text>
+                              <text x="250" y="65" fontSize="13" fill="#fa709a" fontWeight="bold">Pending</text>
+                            </svg>
+                          );
+                        })()}
+                      </div>
+                      <div className="flex justify-center gap-8">
+                        <div className="text-sm text-[#7BAFD4]">Paid: {paymentPercentage}%</div>
+                        <div className="text-sm text-[#EF4444]">Pending: {balancePercentage}%</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+                {/* Transaction Table Section */}
+                <div className="overflow-x-auto">
+                  <h5 className="text-md font-semibold mb-2 text-[#2C3E50]">Transaction Details</h5>
+                  <table className="w-full text-left">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-sm font-semibold text-[#2C3E50]">Item No.</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-[#2C3E50]">DR No.</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-[#2C3E50]">Item Name</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-[#2C3E50]">Date</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-[#2C3E50]">Amount</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-[#2C3E50]">Paid</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-[#2C3E50]">Pending</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-[#2C3E50]">Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {getTransactionsForParticular(selectedTrackingItem.particulars).map((txn, idx) => (
+                        <tr key={idx} className="text-sm">
+                          <td className="px-4 py-3">{txn.no || idx + 1}</td>
+                          <td className="px-4 py-3">{txn.drNo || '-'}</td>
+                          <td className="px-4 py-3">{txn.particulars}</td>
+                          <td className="px-4 py-3">{txn.date}</td>
+                          <td className="px-4 py-3">₹{txn.amount}</td>
+                          <td className="px-4 py-3">₹{txn.paid}</td>
+                          <td className="px-4 py-3">₹{txn.balance}</td>
+                          <td className="px-4 py-3">{txn.remarks || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </section>
@@ -823,90 +1036,6 @@ const Inventory = () => {
           </form>
         </div>
       </div>
-
-      {/* Selected Particular Details */}
-      {selectedParticular && (
-        <>
-          {/* Back button */}
-          <button onClick={() => setSelectedParticular(null)} className="mb-4 px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">&larr; Back</button>
-          {/* Analytics cards for selected particular with progress bars */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            {(() => {
-              const a = getAnalyticsForParticular(selectedParticular);
-              return [
-                <div key="consumed" className="bg-[#7BAFD4] rounded-md p-4 text-center text-white">
-                  <div className="text-lg font-bold">Total Consumed / Total Estimated</div>
-                  <div className="text-2xl font-bold my-2">{a.totalConsumed}/{a.totalEstimated}</div>
-                  <div className="w-full bg-white rounded-full h-3 mt-2">
-                    <div
-                      className="bg-red-500 h-3 rounded-full"
-                      style={{ width: `${(a.totalConsumed / a.totalEstimated) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>,
-                <div key="received" className="bg-[#7BAFD4] rounded-md p-4 text-center text-white">
-                  <div className="text-lg font-bold">Total Received / Total Estimated</div>
-                  <div className="text-2xl font-bold my-2">{a.totalReceived}/{a.totalEstimated}</div>
-                  <div className="w-full bg-white rounded-full h-3 mt-2">
-                    <div
-                      className="bg-green-500 h-3 rounded-full"
-                      style={{ width: `${(a.totalReceived / a.totalEstimated) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>,
-                <div key="remaining" className="bg-[#7BAFD4] rounded-md p-4 text-center text-white">
-                  <div className="text-lg font-bold">Remaining In Stock</div>
-                  <div className="text-2xl font-bold my-2">{a.remaining}</div>
-                  <div className="w-full bg-white rounded-full h-3 mt-2">
-                    <div
-                      className="bg-blue-500 h-3 rounded-full"
-                      style={{ width: `${(a.remaining / a.totalEstimated) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-              ];
-            })()}
-          </div>
-          {/* Transactions table for selected particular */}
-          <div className="bg-white rounded-lg shadow-md border border-gray-200">
-            <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Material Tracking List &gt; {selectedParticular}</h3>
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3">NO.</th>
-                    <th className="px-6 py-3">Particulars</th>
-                    <th className="px-6 py-3">Date</th>
-                    <th className="px-6 py-3">Received</th>
-                    <th className="px-6 py-3">Consumed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {getTransactionsForParticular(selectedParticular).map((txn, idx) => (
-                    <tr key={txn.drNo + idx}>
-                      <td className="px-6 py-4">{String(idx+1).padStart(2, '0')}</td>
-                      <td className="px-6 py-4 text-red-600 font-bold">{txn.particulars}</td>
-                      <td className="px-6 py-4">{txn.date}</td>
-                      <td className="px-6 py-4">{txn.received || txn.amount || '-'}</td>
-                      <td className="px-6 py-4">{txn.consumed || txn.paid || '-'}</td>
-                    </tr>
-                  ))}
-                  {/* Totals row */}
-                  <tr className="bg-gray-50 font-semibold">
-                    <td className="px-6 py-4" colSpan={3}>Total</td>
-                    <td className="px-6 py-4">{getAnalyticsForParticular(selectedParticular).totalReceived}</td>
-                    <td className="px-6 py-4">{getAnalyticsForParticular(selectedParticular).totalConsumed}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
     </>
   );
 };

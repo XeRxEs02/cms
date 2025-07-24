@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import ElvaLogo from '../Components/ElvaLogo';
+import { PasswordInput } from "../Components/common/Input";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -45,11 +46,11 @@ const Login = () => {
             <label className="block text-sm text-white mb-2 uppercase tracking-wider font-medium">
               Password
             </label>
-            <input
-              type="password"
+            <PasswordInput
               value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="w-full bg-transparent border-b border-gray-400 px-0 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-white [&::placeholder]:text-gray-400"
+              onChange={setPassword}
+              placeholder="Enter your password"
+              className="bg-transparent border-b border-gray-400 px-0 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-white [&::placeholder]:text-gray-400"
             />
           </div>
 

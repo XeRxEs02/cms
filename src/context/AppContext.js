@@ -2,6 +2,12 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 
 const AppContext = createContext();
 
+function getRelativeDate(daysAgo) {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return d.toISOString().split('T')[0];
+}
+
 export const AppProvider = ({ children }) => {
   const [appData, setAppData] = useState({
     dailyReport: {
@@ -17,41 +23,140 @@ export const AppProvider = ({ children }) => {
         percentage: 32.69
       },
       entries: [
+        // Today
         {
           no: "01",
           drNo: "DR001",
-          particulars: "Construction Material",
-          date: "01/01/2025",
-          amount: 700,
-          paid: 700,
-          balance: 0,
-          unit: "No.",
-          quantity: 1,
-          remarks: "-"
+          particulars: "Cement",
+          date: getRelativeDate(0),
+          amount: 1000,
+          paid: 800,
+          balance: 200,
+          unit: "bags",
+          quantity: 10,
+          remarks: "Received from supplier",
+          received: 10
         },
         {
           no: "02",
           drNo: "DR002",
           particulars: "Sand",
-          date: "01/01/2025",
-          amount: 24000,
-          paid: 24000,
+          date: getRelativeDate(0),
+          amount: 600,
+          paid: 600,
           balance: 0,
-          unit: "Trip",
-          quantity: 1,
-          remarks: "-"
+          unit: "tons",
+          quantity: 6,
+          remarks: "Sand delivered",
+          received: 6
         },
+        // 3 days ago
         {
           no: "03",
           drNo: "DR003",
+          particulars: "Bricks",
+          date: getRelativeDate(3),
+          amount: 2000,
+          paid: 1500,
+          balance: 500,
+          unit: "pcs",
+          quantity: 1000,
+          remarks: "Partial payment",
+          received: 1000
+        },
+        {
+          no: "04",
+          drNo: "DR004",
+          particulars: "Steel",
+          date: getRelativeDate(3),
+          amount: 1200,
+          paid: 1200,
+          balance: 0,
+          unit: "kg",
+          quantity: 400,
+          remarks: "Steel rods",
+          received: 400
+        },
+        // 10 days ago
+        {
+          no: "05",
+          drNo: "DR005",
+          particulars: "Cement",
+          date: getRelativeDate(10),
+          amount: 800,
+          paid: 800,
+          balance: 0,
+          unit: "bags",
+          quantity: 8,
+          remarks: "Old cement",
+          received: 8
+        },
+        {
+          no: "06",
+          drNo: "DR006",
           particulars: "Sand",
-          date: "01/01/2025",
-          amount: 12000,
-          paid: 0,
-          balance: 12000,
-          unit: "Trip",
-          quantity: 1,
-          remarks: "-"
+          date: getRelativeDate(10),
+          amount: 400,
+          paid: 400,
+          balance: 0,
+          unit: "tons",
+          quantity: 4,
+          remarks: "Sand for foundation",
+          received: 4
+        },
+        // 40 days ago
+        {
+          no: "07",
+          drNo: "DR007",
+          particulars: "Bricks",
+          date: getRelativeDate(40),
+          amount: 1500,
+          paid: 1500,
+          balance: 0,
+          unit: "pcs",
+          quantity: 700,
+          remarks: "Bricks for wall",
+          received: 700
+        },
+        {
+          no: "08",
+          drNo: "DR008",
+          particulars: "Steel",
+          date: getRelativeDate(40),
+          amount: 900,
+          paid: 900,
+          balance: 0,
+          unit: "kg",
+          quantity: 300,
+          remarks: "Steel mesh",
+          received: 300
+        },
+        // 8 months ago (approx 240 days)
+        {
+          no: "09",
+          drNo: "DR009",
+          particulars: "Cement",
+          date: getRelativeDate(240),
+          amount: 1200,
+          paid: 1000,
+          balance: 200,
+          unit: "bags",
+          quantity: 12,
+          remarks: "Received last year",
+          received: 12
+        },
+        {
+          no: "10",
+          drNo: "DR010",
+          particulars: "Sand",
+          date: getRelativeDate(240),
+          amount: 700,
+          paid: 700,
+          balance: 0,
+          unit: "tons",
+          quantity: 7,
+          remarks: "Old sand",
+          received: 7
         }
       ]
     },
@@ -110,10 +215,19 @@ export const AppProvider = ({ children }) => {
       
       if (newEntry.isNew) {
         const nextNo = (updatedEntries.length + 1).toString().padStart(2, '0');
+        // Always store date as YYYY-MM-DD
+        let entryDate = newEntry.date;
+        if (entryDate) {
+          // If not already in YYYY-MM-DD, convert
+          const d = new Date(entryDate);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(entryDate)) {
+            entryDate = d.toISOString().split('T')[0];
+          }
+        }
         updatedEntries.push({
           ...newEntry,
           no: nextNo,
-          date: new Date(newEntry.date).toLocaleDateString('en-GB')
+          date: entryDate
         });
       }
       

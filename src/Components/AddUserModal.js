@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { PasswordInput } from './common/Input';
 
 const AddUserModal = ({ isOpen, onClose, onAdd, projects = [] }) => {
   const [formData, setFormData] = useState({
@@ -59,6 +60,8 @@ const AddUserModal = ({ isOpen, onClose, onAdd, projects = [] }) => {
           supervisorProjects[projectName] = formData.user;
         });
         localStorage.setItem('supervisorProjects', JSON.stringify(supervisorProjects));
+        // Log the supervisor-project mapping to the console
+        console.log('Supervisor-Project Mapping:', supervisorProjects);
       }
       setFormData({ user: '', authorisation: '', projects: [], username: '', password: '' });
       setErrors({});
@@ -159,13 +162,13 @@ const AddUserModal = ({ isOpen, onClose, onAdd, projects = [] }) => {
             />
           </div>
           <div>
-            <input
+            <PasswordInput
               name="password"
-              type="password"
               value={formData.password}
+              onChange={val => setFormData({ ...formData, password: val })}
               readOnly
-              className={`w-full border p-2 rounded bg-gray-100 ${errors.password ? 'border-red-400 bg-red-50 placeholder-red-400' : ''}`}
               placeholder={errors.password || 'Enter Password'}
+              className={`bg-gray-100 ${errors.password ? 'border-red-400 bg-red-50 placeholder-red-400' : ''}`}
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">

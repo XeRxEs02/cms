@@ -10,6 +10,8 @@ import AddProjectModal from "../Components/AddProjectModal";
 import AddClientModal from '../Pages/Indent'; // or the correct path if AddClientModal is exported separately
 import AddUserModal from '../Components/AddUserModal';
 import { ClientProvider, useClientContext } from '../context/ClientContext';
+import DashboardBar from "../Components/DashboardBar";
+import { getProjectDashboardData } from "../services/dashboardDataService";
 
 // Mock project data - in a real application, this would come from an API
 const projectsData = [
@@ -92,6 +94,26 @@ const ProjectsPage = () => {
   const [clientList, setClientList] = useState([]);
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const { addOrUpdateClient } = useClientContext();
+
+  // Aggregate dashboard data for all projects
+  const dashboardTotals = React.useMemo(() => {
+    let existingBalance = 0;
+    let paymentsReceived = 0;
+    let budgetSpent = 0;
+    let balanceToBePaid = 0;
+    let totalBudget = 0;
+    projects.forEach((project) => {
+      const { dashboardData } = getProjectDashboardData(project);
+      if (dashboardData) {
+        existingBalance += parseFloat(dashboardData.existingBalance) || 0;
+        paymentsReceived += (dashboardData.paymentsDone?.current || 0) * 100000; // paymentsDone is in lakhs
+        budgetSpent += dashboardData.budgetSpent?.current || 0;
+        balanceToBePaid += dashboardData.balanceToBePaid?.current || 0;
+        totalBudget += dashboardData.budgetSpent?.total || 0;
+      }
+    });
+    return { existingBalance, paymentsReceived, budgetSpent, balanceToBePaid, totalBudget };
+  }, [projects]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -278,6 +300,15 @@ const ProjectsPage = () => {
               </button>
             </div>
           </div>
+
+          {/* Dashboard Bar at the top */}
+          <DashboardBar
+            existingBalance={dashboardTotals.existingBalance}
+            paymentsReceived={dashboardTotals.paymentsReceived}
+            budgetSpent={dashboardTotals.budgetSpent}
+            balanceToBePaid={dashboardTotals.balanceToBePaid}
+            totalBudget={dashboardTotals.totalBudget}
+          />
 
           {/* Projects Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-4 gap-x-0">

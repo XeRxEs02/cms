@@ -69,7 +69,7 @@ export default function Sidebar() {
           {sidebarroutes.map((route, index) => (
             <li key={index}>
               <div
-                className={`flex items-center gap-2 p-2 rounded-xl cursor-pointer text-md transition-all duration-200
+                className={`flex items-center gap-2 p-2 rounded-xl cursor-pointer text-md font-medium transition-all duration-200
                   ${isActive(route.path)
                     ? 'bg-white text-[#669BBC] font-semibold shadow-sm'
                     : 'text-black hover:bg-white/90 hover:text-[#669BBC]'

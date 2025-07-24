@@ -57,13 +57,12 @@ const MaterialTrackingDetails = () => {
   );
 
   // Compute analytics
-  let totalReceived = 0, totalConsumed = 0;
+  let totalReceived = 0, totalConsumed = 0, unit = '-';
   txns.forEach(txn => {
     if (txn.received) totalReceived += Number(txn.received);
     if (txn.consumed) totalConsumed += Number(txn.consumed);
-    if (txn.amount && !txn.received) totalReceived += Number(txn.amount);
-    if (txn.paid && !txn.consumed) totalConsumed += Number(txn.paid);
   });
+  if (txns.length > 0 && txns[0].unit) unit = txns[0].unit;
   const totalEstimated = 100; // TODO: Replace with actual estimate if available
   const remaining = totalReceived - totalConsumed;
 
@@ -76,25 +75,8 @@ const MaterialTrackingDetails = () => {
   const percentRemaining = totalEstimated > 0 ? Math.round((safeRemaining / totalEstimated) * 100) : 0;
 
   return (
-    <div className="p-4 sm:p-6 min-h-screen">
+    <div className="p-4 sm:p-6 min-h-screen max-w-7xl mx-auto w-full">
       <button onClick={() => navigate(-1)} className="mb-4 px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">&larr; Back</button>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="rounded-md p-4 text-center text-white" style={{ background: 'linear-gradient(135deg, #f87171 60%, #fca5a5 100%)' }}>
-          <div className="text-lg font-bold mb-2">Total Consumed / Total Estimated</div>
-          <CircularProgress value={safeConsumed} total={totalEstimated} color="#ef4444" />
-          <div className="mt-2 text-lg font-bold text-[#ef4444] bg-white rounded-full inline-block px-3 py-1">{percentConsumed}%</div>
-        </div>
-        <div className="rounded-md p-4 text-center text-white" style={{ background: 'linear-gradient(135deg, #4ade80 60%, #bbf7d0 100%)' }}>
-          <div className="text-lg font-bold mb-2">Total Received / Total Estimated</div>
-          <CircularProgress value={safeReceived} total={totalEstimated} color="#22c55e" />
-          <div className="mt-2 text-lg font-bold text-[#22c55e] bg-white rounded-full inline-block px-3 py-1">{percentReceived}%</div>
-        </div>
-        <div className="rounded-md p-4 text-center text-white" style={{ background: 'linear-gradient(135deg, #60a5fa 60%, #bfdbfe 100%)' }}>
-          <div className="text-lg font-bold mb-2">Remaining In Stock</div>
-          <CircularProgress value={safeRemaining} total={totalEstimated} color="#3b82f6" />
-          <div className="mt-2 text-lg font-bold text-[#3b82f6] bg-white rounded-full inline-block px-3 py-1">{percentRemaining}%</div>
-        </div>
-      </div>
       <div className="bg-white rounded-lg shadow-md border border-gray-200">
         <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
           <div>
@@ -105,27 +87,42 @@ const MaterialTrackingDetails = () => {
           <table className="w-full text-left">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3">NO.</th>
-                <th className="px-6 py-3">Particulars</th>
-                <th className="px-6 py-3">Date</th>
-                <th className="px-6 py-3">Received</th>
-                <th className="px-6 py-3">Consumed</th>
+                <th className="px-4 py-3">NO.</th>
+                <th className="px-4 py-3">DR No</th>
+                <th className="px-4 py-3">Particulars</th>
+                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Amount</th>
+                <th className="px-4 py-3">Paid</th>
+                <th className="px-4 py-3">Balance</th>
+                <th className="px-4 py-3">Received</th>
+                <th className="px-4 py-3">Consumed</th>
+                <th className="px-4 py-3">Remarks</th>
               </tr>
             </thead>
             <tbody>
               {txns.map((txn, idx) => (
-                <tr key={txn.drNo + idx}>
-                  <td className="px-6 py-4">{String(idx+1).padStart(2, '0')}</td>
-                  <td className="px-6 py-4 text-red-600 font-bold">{txn.particulars}</td>
-                  <td className="px-6 py-4">{txn.date}</td>
-                  <td className="px-6 py-4">{txn.received || txn.amount || '-'}</td>
-                  <td className="px-6 py-4">{txn.consumed || txn.paid || '-'}</td>
+                <tr key={(txn.drNo || "-") + idx}>
+                  <td className="px-4 py-2">{String(idx+1).padStart(2, '0')}</td>
+                  <td className="px-4 py-2">{txn.drNo || '-'}</td>
+                  <td className="px-4 py-2 text-red-600 font-bold">{txn.particulars || '-'}</td>
+                  <td className="px-4 py-2">{txn.date || '-'}</td>
+                  <td className="px-4 py-2">{txn.amount !== undefined ? txn.amount : '-'}</td>
+                  <td className="px-4 py-2">{txn.paid !== undefined ? txn.paid : '-'}</td>
+                  <td className="px-4 py-2">{txn.balance !== undefined ? txn.balance : '-'}</td>
+                  <td className="px-4 py-2">{txn.received !== undefined ? `${txn.received} ${txn.unit || unit}` : '-'}</td>
+                  <td className="px-4 py-2">{txn.consumed !== undefined ? `${txn.consumed} ${txn.unit || unit}` : '-'}</td>
+                  <td className="px-4 py-2">{txn.remarks || '-'}</td>
                 </tr>
               ))}
+              {/* Totals row */}
               <tr className="bg-gray-50 font-semibold">
-                <td className="px-6 py-4" colSpan={3}>Total</td>
-                <td className="px-6 py-4">{totalReceived}</td>
-                <td className="px-6 py-4">{totalConsumed}</td>
+                <td className="px-4 py-2" colSpan={4}>Total</td>
+                <td className="px-4 py-2">{txns.reduce((sum, t) => sum + (Number(t.amount) || 0), 0)}</td>
+                <td className="px-4 py-2">{txns.reduce((sum, t) => sum + (Number(t.paid) || 0), 0)}</td>
+                <td className="px-4 py-2">{txns.reduce((sum, t) => sum + (Number(t.balance) || 0), 0)}</td>
+                <td className="px-4 py-2">{totalReceived} {unit}</td>
+                <td className="px-4 py-2">{totalConsumed} {unit}</td>
+                <td className="px-4 py-2">-</td>
               </tr>
             </tbody>
           </table>

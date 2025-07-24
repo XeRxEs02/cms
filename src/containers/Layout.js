@@ -25,7 +25,7 @@ const Layout = () => {
       ),
       React.createElement(
         'main',
-        { className: "flex-1 overflow-hidden" },
+        { className: "flex-1 overflow-hidden min-h-screen text-base" },
         React.createElement(
           AnimatePresence,
           { mode: "wait" },

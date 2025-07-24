@@ -1,4 +1,5 @@
 import { lazy } from "react";
+import DailyReportHistory from '../Pages/DailyReportHistory';
 
 const DailyReport = lazy(() => import("../Pages/DailyReport.js"));
 const Inventory = lazy(() => import("../Pages/Inventory.js"));
@@ -94,5 +95,7 @@ const pageroutes = [
     path: "material-tracking/:particularName",
     component: MaterialTrackingDetails,
   },
+  { path: '/daily-report/history', component: DailyReportHistory },
+  { path: '/daily-report/history/:date', component: DailyReportHistory },
 ];
 export default pageroutes;

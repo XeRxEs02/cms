@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Navbar from "../Components/Navbar";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ListTodo, FileText, Download } from "lucide-react";
 import AddDailyReportModal from '../Components/AddDailyReportModal';
 import { useAppContext } from '../context/AppContext';
@@ -9,17 +9,35 @@ import { useToast } from "../context/ToastContext";
 
 const DailyReport = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [showAddModal, setShowAddModal] = useState(false);
   const { appData, updateDailyReport } = useAppContext();
   const { dailyReport } = appData;
   const { showSuccess, showInfo } = useToast();
 
+  // New: State for selected date
+  const allDates = Array.from(new Set(dailyReport.entries.map(e => e.date))).sort((a, b) => new Date(b) - new Date(a));
+  const [selectedDate, setSelectedDate] = useState(allDates[0] || '');
+  // Add state for history range
+  const [historyRange, setHistoryRange] = useState('1week');
+
+  // New: State for history particular filter
+  const allParticulars = Array.from(new Set(dailyReport.entries.map(e => e.particulars)));
+  const [historyParticular, setHistoryParticular] = useState('All');
+
   const handleAddEntry = (newEntry) => {
     updateDailyReport({ ...newEntry, isNew: true });
     setShowAddModal(false);
+    // If the new entry's date is different, switch to that date so the table updates
+    if (newEntry.date && newEntry.date !== selectedDate) {
+      setSelectedDate(newEntry.date);
+    } else {
+      // Otherwise, force a state update to trigger re-render
+      setSelectedDate(prev => prev);
+    }
   };
 
-  // Function to group transactions by particulars
+  // Grouped transactions (unchanged)
   const getGroupedTransactions = () => {
     const grouped = dailyReport.entries.reduce((acc, entry) => {
       const key = entry.particulars.toLowerCase();
@@ -38,14 +56,11 @@ const DailyReport = () => {
           transactions: [entry]
         };
       } else {
-        // Update the aggregated values
         acc[key].amount += entry.amount;
         acc[key].paid += entry.paid;
         acc[key].balance += entry.balance;
         acc[key].quantity += entry.quantity;
         acc[key].transactions.push(entry);
-        
-        // Keep track of the latest transaction date and DR number
         const currentDate = new Date(entry.date);
         const existingDate = new Date(acc[key].date);
         if (currentDate > existingDate) {
@@ -57,11 +72,38 @@ const DailyReport = () => {
       }
       return acc;
     }, {});
+    return Object.values(grouped).sort((a, b) => new Date(b.date) - new Date(a.date));
+  };
 
-    // Convert to array and sort by date (most recent first)
-    return Object.values(grouped).sort((a, b) => 
-      new Date(b.date) - new Date(a.date)
-    );
+  // New: Filter entries for selected date
+  const entriesForSelectedDate = selectedDate ? dailyReport.entries.filter(e => e.date === selectedDate) : [];
+
+  // Calculate totals for selected date
+  const totalAmount = entriesForSelectedDate.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+  const totalPaid = entriesForSelectedDate.reduce((sum, entry) => sum + (entry.paid || 0), 0);
+  const totalBalance = entriesForSelectedDate.reduce((sum, entry) => sum + (entry.balance || 0), 0);
+
+  // Helper to get filtered dates for history modal
+  const getFilteredDates = () => {
+    const now = new Date();
+    let filtered = allDates;
+    if (historyParticular !== 'All') {
+      filtered = filtered.filter(date => dailyReport.entries.some(e => e.date === date && e.particulars === historyParticular));
+    }
+    if (historyRange === '1week') {
+      const weekAgo = new Date(now);
+      weekAgo.setDate(now.getDate() - 7);
+      return filtered.filter(date => new Date(date) >= weekAgo && new Date(date) <= now);
+    } else if (historyRange === '1month') {
+      const monthAgo = new Date(now);
+      monthAgo.setMonth(now.getMonth() - 1);
+      return filtered.filter(date => new Date(date) >= monthAgo && new Date(date) <= now);
+    } else if (historyRange === '1year') {
+      const yearAgo = new Date(now);
+      yearAgo.setFullYear(now.getFullYear() - 1);
+      return filtered.filter(date => new Date(date) >= yearAgo && new Date(date) <= now);
+    }
+    return filtered;
   };
 
   // Function to render circular progress
@@ -99,19 +141,11 @@ const DailyReport = () => {
     );
   };
 
-  // Get grouped transactions
-  const groupedTransactions = getGroupedTransactions();
-
-  // Calculate totals from grouped transactions
-  const totalAmount = groupedTransactions.reduce((sum, entry) => sum + entry.amount, 0);
-  const totalPaid = groupedTransactions.reduce((sum, entry) => sum + entry.paid, 0);
-  const totalBalance = groupedTransactions.reduce((sum, entry) => sum + entry.balance, 0);
-
   // Handle export to Excel
   const handleExportToExcel = () => {
     try {
       // Create worksheet from transactions data
-      const ws = XLSX.utils.json_to_sheet(groupedTransactions.map(item => ({
+      const ws = XLSX.utils.json_to_sheet(entriesForSelectedDate.map(item => ({
         'No.': item.no,
         'Particulars': item.particulars,
         'Date': item.date,
@@ -164,8 +198,27 @@ const DailyReport = () => {
           <p className="text-[#7C8CA1]">Track daily expenses and payments</p>
         </div>
 
+        {/* Move View History and Select Date up, above the main action bar */}
+        <div className="flex justify-end gap-2 mb-2">
+          <button
+            className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-700"
+            onClick={() => navigate(`/app/daily-report/history`)}
+          >
+            View History
+          </button>
+          <label className="font-medium text-gray-700">Select Date:</label>
+          <select
+            className="border rounded px-2 py-1 ml-2"
+            value={selectedDate}
+            onChange={e => { setSelectedDate(e.target.value); }}
+          >
+            {allDates.map(date => (
+              <option key={date} value={date}>{date}</option>
+            ))}
+          </select>
+        </div>
         {/* Action Buttons */}
-        <div className="flex justify-end gap-4 mb-4">
+        <div className="flex flex-wrap gap-4 mb-4 items-center">
           <button 
             onClick={handleExportToExcel}
             className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center gap-2"
@@ -175,7 +228,7 @@ const DailyReport = () => {
           </button>
           <button 
             onClick={() => setShowAddModal(true)}
-            className="bg-[#7BAFD4] text-white px-6 py-2 rounded-lg hover:bg-[#6B9FD4] transition-colors"
+            className="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600 transition-colors"
           >
             Add Entry
           </button>
@@ -243,33 +296,37 @@ const DailyReport = () => {
                 <tr>
                   <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">DR. No.</th>
                   <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Particulars</th>
-                  <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Latest Date</th>
-                  <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Total Amount</th>
-                  <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Total Paid</th>
+                  <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Date</th>
+                  <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Amount</th>
+                  <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Paid</th>
                   <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Balance</th>
                   <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Unit</th>
-                  <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Total Quantity</th>
-                  <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Latest Remarks</th>
+                  <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Quantity</th>
+                  <th className="px-6 py-3 text-sm font-semibold text-[#2C3E50]">Remarks</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
-                {groupedTransactions.map((entry) => (
-                  <tr key={entry.particulars} className="text-sm text-[#4A5568] hover:bg-gray-50">
-                    <td className="px-6 py-4">{entry.drNo}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <span className="text-[#7BAFD4]">{entry.particulars}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">{entry.date}</td>
-                    <td className="px-6 py-4 text-[#2C3E50]">₹{entry.amount}</td>
-                    <td className="px-6 py-4 text-[#2C3E50]">₹{entry.paid}</td>
-                    <td className="px-6 py-4 text-[#2C3E50]">₹{entry.balance}</td>
-                    <td className="px-6 py-4">{entry.unit}</td>
-                    <td className="px-6 py-4">{entry.quantity}</td>
-                    <td className="px-6 py-4 text-[#7C8CA1]">{entry.remarks}</td>
-                  </tr>
-                ))}
+              <tbody>
+                {entriesForSelectedDate.length === 0 ? (
+                  <tr><td colSpan={9} className="text-center py-6 text-gray-400">No entries for this day.</td></tr>
+                ) : (
+                  entriesForSelectedDate.map((entry, idx) => (
+                    <tr key={entry.id || entry.no || idx} className="text-sm text-[#4A5568] hover:bg-gray-50">
+                      <td className="px-6 py-4">{entry.drNo}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center">
+                          <span className="text-[#7BAFD4]">{entry.particulars}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">{entry.date}</td>
+                      <td className="px-6 py-4 text-[#2C3E50]">₹{entry.amount}</td>
+                      <td className="px-6 py-4 text-[#2C3E50]">₹{entry.paid}</td>
+                      <td className="px-6 py-4 text-[#2C3E50]">₹{entry.balance}</td>
+                      <td className="px-6 py-4">{entry.unit}</td>
+                      <td className="px-6 py-4">{entry.quantity}</td>
+                      <td className="px-6 py-4 text-[#7C8CA1]">{entry.remarks}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
               <tfoot className="bg-gray-50">
                 <tr>
@@ -285,6 +342,9 @@ const DailyReport = () => {
             </table>
           </div>
         </div>
+
+        {/* History Modal */}
+        {/* The history modal and its related state/logic have been removed. */}
 
         {/* Add Entry Modal */}
         <AddDailyReportModal

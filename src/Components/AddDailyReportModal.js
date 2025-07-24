@@ -82,7 +82,8 @@ const AddDailyReportModal = ({ isOpen, onClose, onAdd }) => {
       amount: Number(formData.amount),
       paid: Number(formData.paid),
       balance,
-      quantity: Number(formData.quantity)
+      quantity: Number(formData.quantity),
+      received: formData.received !== undefined ? Number(formData.received) : Number(formData.quantity)
     });
   };
 
