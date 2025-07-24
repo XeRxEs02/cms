@@ -172,9 +172,15 @@ const ProjectsPage = () => {
   };
 
   // Handle logout
-  const handleLogout = () => {
-    logout(); // Clear authentication state
-    navigate("/login"); // Navigate to login page
+  const handleLogout = async () => {
+    try {
+      await logout(); // Clear authentication state from Keycloak
+      navigate("/login"); // Navigate to login page
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Navigate to login anyway, even if logout fails
+      navigate("/login");
+    }
   };
 
   const handleAddClient = (client) => {
